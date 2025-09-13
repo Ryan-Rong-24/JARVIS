@@ -39,6 +39,27 @@ interface SongGenerationRequest {
   tags?: string;
 }
 
+/**
+ * Interface for stored generated songs
+ */
+interface GeneratedSong {
+  id: string;
+  clipId: string;
+  title: string;
+  status: string;
+  audioUrl: string | null;
+  imageUrl: string | null;
+  createdAt: Date;
+  completedAt: Date | null;
+  userId: string;
+  prompt: string;
+  tags: string;
+  selectedPhotosCount: number;
+  selectedTranscriptionsCount: number;
+  metadata: any;
+  favorite?: boolean;
+}
+
 const PACKAGE_NAME = process.env.PACKAGE_NAME ?? (() => { throw new Error('PACKAGE_NAME is not set in .env file'); })();
 const MENTRAOS_API_KEY = process.env.MENTRAOS_API_KEY ?? (() => { throw new Error('MENTRAOS_API_KEY is not set in .env file'); })();
 const PORT = parseInt(process.env.PORT || '3000');
@@ -66,6 +87,10 @@ class ExampleMentraOSApp extends AppServer {
   private photoGalleries: Map<string, StoredPhoto[]> = new Map();
   // Transcription history: userId -> array of transcriptions
   private transcriptionHistory: Map<string, TranscriptionEntry[]> = new Map();
+  // Generated songs gallery: userId -> array of songs
+  private songGalleries: Map<string, GeneratedSong[]> = new Map();
+  // Active song generations: clipId -> userId (for tracking ongoing generations)
+  private activeGenerations: Map<string, string> = new Map();
   // Streaming state
   private isStreamingPhotos: Map<string, boolean> = new Map();
   private nextPhotoTime: Map<string, number> = new Map();
@@ -242,6 +267,81 @@ class ExampleMentraOSApp extends AppServer {
   private getLatestPhoto(userId: string): StoredPhoto | undefined {
     const gallery = this.photoGalleries.get(userId);
     return gallery && gallery.length > 0 ? gallery[gallery.length - 1] : undefined;
+  }
+
+  /**
+   * Add a generated song to the user's gallery
+   */
+  private addSongToGallery(userId: string, clipId: string, prompt: string, tags: string, selectedPhotosCount: number, selectedTranscriptionsCount: number): GeneratedSong {
+    if (!this.songGalleries.has(userId)) {
+      this.songGalleries.set(userId, []);
+    }
+
+    const song: GeneratedSong = {
+      id: `song-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      clipId,
+      title: '', // Will be updated when available
+      status: 'submitted',
+      audioUrl: null,
+      imageUrl: null,
+      createdAt: new Date(),
+      completedAt: null,
+      userId,
+      prompt,
+      tags,
+      selectedPhotosCount,
+      selectedTranscriptionsCount,
+      metadata: {},
+      favorite: false
+    };
+
+    const gallery = this.songGalleries.get(userId)!;
+    gallery.push(song);
+
+    // Keep only the last 25 songs per user
+    if (gallery.length > 25) {
+      gallery.shift();
+    }
+
+    // Track active generation
+    this.activeGenerations.set(clipId, userId);
+
+    this.logger.info(`Added song to gallery for user ${userId}, clipId: ${clipId}`);
+    return song;
+  }
+
+  /**
+   * Update song status and metadata
+   */
+  private updateSongInGallery(clipId: string, status: string, title?: string, audioUrl?: string, imageUrl?: string, metadata?: any): void {
+    const userId = this.activeGenerations.get(clipId);
+    if (!userId) return;
+
+    const gallery = this.songGalleries.get(userId);
+    if (!gallery) return;
+
+    const song = gallery.find(s => s.clipId === clipId);
+    if (!song) return;
+
+    song.status = status;
+    if (title) song.title = title;
+    if (audioUrl) song.audioUrl = audioUrl;
+    if (imageUrl) song.imageUrl = imageUrl;
+    if (metadata) song.metadata = metadata;
+
+    if (status === 'complete') {
+      song.completedAt = new Date();
+      this.activeGenerations.delete(clipId); // Clean up tracking
+    }
+
+    this.logger.debug(`Updated song ${song.id} for user ${userId}, status: ${status}`);
+  }
+
+  /**
+   * Get user's song gallery
+   */
+  private getSongGallery(userId: string): GeneratedSong[] {
+    return this.songGalleries.get(userId) || [];
   }
 
 
@@ -460,9 +560,20 @@ class ExampleMentraOSApp extends AppServer {
         const result = await response.json();
         this.logger.info(`Song generation started for user ${userId}, clip ID: ${result.id}`);
 
+        // Save to song gallery
+        const song = this.addSongToGallery(
+          userId,
+          result.id,
+          songPrompt.slice(0, 2500),
+          tags || 'ambient, atmospheric, reflective',
+          selectedPhotos.length,
+          selectedTranscriptions.length
+        );
+
         res.json({
           success: true,
           clipId: result.id,
+          songId: song.id,
           status: result.status,
           prompt: songPrompt.slice(0, 2500),
           selectedPhotos: selectedPhotos.length,
@@ -510,6 +621,16 @@ class ExampleMentraOSApp extends AppServer {
         const clips = await response.json();
         const clip = clips[0];
 
+        // Update song in gallery
+        this.updateSongInGallery(
+          clipId,
+          clip.status,
+          clip.title,
+          clip.audio_url,
+          clip.image_url,
+          clip.metadata
+        );
+
         res.json({
           id: clip.id,
           status: clip.status,
@@ -524,6 +645,90 @@ class ExampleMentraOSApp extends AppServer {
         this.logger.error('Song status check error:', error);
         res.status(500).json({ error: 'Internal server error' });
       }
+    });
+
+    // API endpoint to get user's song gallery
+    app.get('/api/songs', (req: any, res: any) => {
+      const userId = (req as AuthenticatedRequest).authUserId;
+
+      if (!userId) {
+        res.status(401).json({ error: 'Not authenticated' });
+        return;
+      }
+
+      const songs = this.getSongGallery(userId);
+
+      res.json({
+        songs: songs.map(song => ({
+          id: song.id,
+          clipId: song.clipId,
+          title: song.title || 'Untitled',
+          status: song.status,
+          audioUrl: song.audioUrl,
+          imageUrl: song.imageUrl,
+          createdAt: song.createdAt.getTime(),
+          completedAt: song.completedAt ? song.completedAt.getTime() : null,
+          prompt: song.prompt,
+          tags: song.tags,
+          selectedPhotosCount: song.selectedPhotosCount,
+          selectedTranscriptionsCount: song.selectedTranscriptionsCount,
+          favorite: song.favorite || false,
+          metadata: song.metadata
+        }))
+      });
+    });
+
+    // API endpoint to toggle song favorite status
+    app.post('/api/songs/favorite', (req: any, res: any) => {
+      const userId = (req as AuthenticatedRequest).authUserId;
+      const { songId, favorite } = req.body;
+
+      if (!userId) {
+        res.status(401).json({ error: 'Not authenticated' });
+        return;
+      }
+
+      const songs = this.getSongGallery(userId);
+      const song = songs.find(s => s.id === songId);
+
+      if (!song) {
+        res.status(404).json({ error: 'Song not found' });
+        return;
+      }
+
+      song.favorite = favorite;
+      res.json({ success: true, favorite: song.favorite });
+    });
+
+    // API endpoint to delete a song
+    app.delete('/api/songs/:songId', (req: any, res: any) => {
+      const userId = (req as AuthenticatedRequest).authUserId;
+      const songId = req.params.songId;
+
+      if (!userId) {
+        res.status(401).json({ error: 'Not authenticated' });
+        return;
+      }
+
+      const songs = this.getSongGallery(userId);
+      const songIndex = songs.findIndex(s => s.id === songId);
+
+      if (songIndex === -1) {
+        res.status(404).json({ error: 'Song not found' });
+        return;
+      }
+
+      const song = songs[songIndex];
+
+      // Remove from active generations if still generating
+      if (this.activeGenerations.has(song.clipId)) {
+        this.activeGenerations.delete(song.clipId);
+      }
+
+      // Remove from gallery
+      songs.splice(songIndex, 1);
+
+      res.json({ success: true });
     });
 
     // Main webview route - displays the enhanced interface

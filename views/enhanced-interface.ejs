@@ -266,6 +266,192 @@
       padding: 40px;
     }
 
+    .song-gallery {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 20px;
+      margin-bottom: 20px;
+    }
+
+    .song-item {
+      background-color: #333;
+      border-radius: 8px;
+      padding: 15px;
+      border: 2px solid transparent;
+      transition: border-color 0.3s, transform 0.2s;
+    }
+
+    .song-item:hover {
+      border-color: #4CAF50;
+      transform: translateY(-2px);
+    }
+
+    .song-item.generating {
+      border-color: #ff9800;
+      background-color: #2a2520;
+    }
+
+    .song-item.completed {
+      border-color: #4CAF50;
+      background-color: #1a2a1a;
+    }
+
+    .song-item.error {
+      border-color: #f44336;
+      background-color: #2a1a1a;
+    }
+
+    .song-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 10px;
+    }
+
+    .song-title {
+      font-size: 18px;
+      font-weight: bold;
+      margin: 0;
+      flex: 1;
+      margin-right: 10px;
+    }
+
+    .song-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .song-action {
+      background: none;
+      border: none;
+      color: #888;
+      cursor: pointer;
+      font-size: 16px;
+      padding: 4px;
+      border-radius: 4px;
+      transition: color 0.3s, background-color 0.3s;
+    }
+
+    .song-action:hover {
+      background-color: #444;
+    }
+
+    .song-action.favorite {
+      color: #ff9800;
+    }
+
+    .song-action.delete:hover {
+      color: #f44336;
+    }
+
+    .song-info {
+      font-size: 12px;
+      color: #888;
+      margin-bottom: 10px;
+    }
+
+    .song-status {
+      display: inline-block;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 10px;
+      text-transform: uppercase;
+      font-weight: bold;
+      margin-bottom: 8px;
+    }
+
+    .song-status.submitted,
+    .song-status.queued {
+      background-color: #666;
+      color: white;
+    }
+
+    .song-status.streaming {
+      background-color: #ff9800;
+      color: white;
+      animation: pulse 2s infinite;
+    }
+
+    .song-status.complete {
+      background-color: #4CAF50;
+      color: white;
+    }
+
+    .song-status.error {
+      background-color: #f44336;
+      color: white;
+    }
+
+    @keyframes pulse {
+      0% { opacity: 1; }
+      50% { opacity: 0.7; }
+      100% { opacity: 1; }
+    }
+
+    .song-prompt {
+      font-size: 13px;
+      color: #ccc;
+      margin-bottom: 8px;
+      line-height: 1.4;
+      max-height: 40px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .song-tags {
+      font-size: 11px;
+      color: #888;
+      margin-bottom: 10px;
+    }
+
+    .song-meta {
+      display: flex;
+      justify-content: space-between;
+      font-size: 11px;
+      color: #666;
+      margin-bottom: 10px;
+    }
+
+    .song-player {
+      margin-top: 10px;
+    }
+
+    .song-player audio {
+      width: 100%;
+      height: 30px;
+    }
+
+    .streaming-indicator {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      color: #ff9800;
+      margin-bottom: 8px;
+    }
+
+    .streaming-indicator .spinner {
+      width: 16px;
+      height: 16px;
+      border: 2px solid transparent;
+      border-top: 2px solid #ff9800;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .song-image {
+      width: 100%;
+      height: 120px;
+      object-fit: cover;
+      border-radius: 4px;
+      margin-bottom: 10px;
+    }
+
     @media (max-width: 768px) {
       .gallery {
         grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
@@ -291,6 +477,7 @@
     <div class="tabs">
       <button class="tab active" onclick="switchTab('gallery')">📸 Photo Gallery</button>
       <button class="tab" onclick="switchTab('transcriptions')">🎤 Transcriptions</button>
+      <button class="tab" onclick="switchTab('songs')">🎵 Song Gallery</button>
       <button class="tab" onclick="switchTab('studio')">🎵 Music Studio</button>
     </div>
 
@@ -309,6 +496,16 @@
       </div>
       <div id="transcriptions-container" class="loading">
         Loading transcriptions...
+      </div>
+    </div>
+
+    <div id="songs-tab" class="tab-content">
+      <div class="selection-summary">
+        <strong>Total Songs:</strong> <span id="total-songs-count">0</span> |
+        <strong>Favorites:</strong> <span id="favorite-songs-count">0</span>
+      </div>
+      <div id="songs-container" class="loading">
+        Loading songs...
       </div>
     </div>
 
@@ -343,13 +540,16 @@
   <script>
     let gallery = [];
     let transcriptions = [];
+    let songs = [];
     let currentClipId = null;
     let statusCheckInterval = null;
+    let songStatusIntervals = new Map(); // Track individual song status checks
 
     // Initialize the interface
     async function init() {
       await loadGallery();
       await loadTranscriptions();
+      await loadSongs();
       updateSelectionCounts();
     }
 
@@ -389,6 +589,22 @@
         console.error('Failed to load transcriptions:', error);
         document.getElementById('transcriptions-container').innerHTML =
           '<div class="empty-state">Failed to load transcriptions</div>';
+      }
+    }
+
+    // Load song gallery
+    async function loadSongs() {
+      try {
+        const response = await fetch('/api/songs');
+        const data = await response.json();
+        songs = data.songs || [];
+        renderSongs();
+        updateSongCounts();
+        startSongStatusChecks();
+      } catch (error) {
+        console.error('Failed to load songs:', error);
+        document.getElementById('songs-container').innerHTML =
+          '<div class="empty-state">Failed to load songs</div>';
       }
     }
 
@@ -463,6 +679,98 @@
       container.appendChild(listDiv);
     }
 
+    // Render song gallery
+    function renderSongs() {
+      const container = document.getElementById('songs-container');
+
+      if (songs.length === 0) {
+        container.innerHTML = '<div class="empty-state">No songs generated yet. Create your first song in the Music Studio!</div>';
+        return;
+      }
+
+      container.innerHTML = '';
+      const galleryDiv = document.createElement('div');
+      galleryDiv.className = 'song-gallery';
+
+      // Sort by creation time, newest first
+      const sortedSongs = [...songs].sort((a, b) => b.createdAt - a.createdAt);
+
+      sortedSongs.forEach(song => {
+        const item = document.createElement('div');
+        let statusClass = '';
+        if (song.status === 'complete') statusClass = 'completed';
+        else if (song.status === 'streaming' || song.status === 'submitted' || song.status === 'queued') statusClass = 'generating';
+        else if (song.status === 'error') statusClass = 'error';
+
+        item.className = `song-item ${statusClass}`;
+
+        const createdDate = new Date(song.createdAt).toLocaleString();
+        const completedDate = song.completedAt ? new Date(song.completedAt).toLocaleString() : null;
+
+        let streamingIndicator = '';
+        if (song.status === 'streaming') {
+          streamingIndicator = `
+            <div class="streaming-indicator">
+              <div class="spinner"></div>
+              <span>Streaming preview available...</span>
+            </div>
+          `;
+        } else if (song.status === 'submitted' || song.status === 'queued') {
+          streamingIndicator = `
+            <div class="streaming-indicator">
+              <div class="spinner"></div>
+              <span>Generating... (~30-60s for streaming)</span>
+            </div>
+          `;
+        }
+
+        item.innerHTML = `
+          ${song.imageUrl ? `<img src="${song.imageUrl}" alt="Song artwork" class="song-image">` : ''}
+
+          <div class="song-header">
+            <h3 class="song-title">${song.title || 'Untitled Song'}</h3>
+            <div class="song-actions">
+              <button class="song-action ${song.favorite ? 'favorite' : ''}" onclick="toggleSongFavorite('${song.id}')" title="Toggle favorite">
+                ${song.favorite ? '★' : '☆'}
+              </button>
+              <button class="song-action delete" onclick="deleteSong('${song.id}')" title="Delete song">🗑️</button>
+            </div>
+          </div>
+
+          <div class="song-status ${song.status}">${song.status}</div>
+
+          ${streamingIndicator}
+
+          <div class="song-prompt">${song.prompt}</div>
+
+          <div class="song-tags">Tags: ${song.tags}</div>
+
+          <div class="song-meta">
+            <span>📸 ${song.selectedPhotosCount} photos</span>
+            <span>🎤 ${song.selectedTranscriptionsCount} transcriptions</span>
+          </div>
+
+          <div class="song-info">
+            Created: ${createdDate}
+            ${completedDate ? `<br>Completed: ${completedDate}` : ''}
+          </div>
+
+          ${song.audioUrl ? `
+            <div class="song-player">
+              <audio controls preload="none">
+                <source src="${song.audioUrl}" type="audio/mpeg">
+                Your browser does not support the audio element.
+              </audio>
+            </div>
+          ` : ''}
+        `;
+
+        galleryDiv.appendChild(item);
+      });
+
+      container.appendChild(galleryDiv);
+    }
+
     // Toggle photo selection
     async function togglePhotoSelection(requestId) {
       const photo = gallery.find(p => p.requestId === requestId);
@@ -522,6 +830,118 @@
       document.getElementById('studio-transcriptions-count').textContent = selectedTranscriptions;
     }
 
+    // Update song counts
+    function updateSongCounts() {
+      const totalSongs = songs.length;
+      const favoriteSongs = songs.filter(s => s.favorite).length;
+
+      document.getElementById('total-songs-count').textContent = totalSongs;
+      document.getElementById('favorite-songs-count').textContent = favoriteSongs;
+    }
+
+    // Toggle song favorite status
+    async function toggleSongFavorite(songId) {
+      const song = songs.find(s => s.id === songId);
+      if (!song) return;
+
+      const newFavorite = !song.favorite;
+
+      try {
+        const response = await fetch('/api/songs/favorite', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ songId, favorite: newFavorite })
+        });
+
+        if (response.ok) {
+          song.favorite = newFavorite;
+          renderSongs();
+          updateSongCounts();
+        }
+      } catch (error) {
+        console.error('Failed to toggle song favorite:', error);
+      }
+    }
+
+    // Delete song
+    async function deleteSong(songId) {
+      if (!confirm('Are you sure you want to delete this song? This action cannot be undone.')) {
+        return;
+      }
+
+      try {
+        const response = await fetch(`/api/songs/${songId}`, {
+          method: 'DELETE'
+        });
+
+        if (response.ok) {
+          // Remove from local array
+          const songIndex = songs.findIndex(s => s.id === songId);
+          if (songIndex !== -1) {
+            const song = songs[songIndex];
+
+            // Stop any status checking for this song
+            if (songStatusIntervals.has(song.clipId)) {
+              clearInterval(songStatusIntervals.get(song.clipId));
+              songStatusIntervals.delete(song.clipId);
+            }
+
+            songs.splice(songIndex, 1);
+            renderSongs();
+            updateSongCounts();
+          }
+        }
+      } catch (error) {
+        console.error('Failed to delete song:', error);
+        alert('Failed to delete song. Please try again.');
+      }
+    }
+
+    // Start status checks for generating songs
+    function startSongStatusChecks() {
+      songs.forEach(song => {
+        if ((song.status === 'submitted' || song.status === 'queued' || song.status === 'streaming') && !songStatusIntervals.has(song.clipId)) {
+          const interval = setInterval(async () => {
+            try {
+              const response = await fetch(`/api/song-status/${song.clipId}`);
+              const status = await response.json();
+
+              // Update song in local array
+              const songIndex = songs.findIndex(s => s.clipId === song.clipId);
+              if (songIndex !== -1) {
+                const updatedSong = songs[songIndex];
+                updatedSong.status = status.status;
+                updatedSong.title = status.title || updatedSong.title;
+                updatedSong.audioUrl = status.audio_url || updatedSong.audioUrl;
+                updatedSong.imageUrl = status.image_url || updatedSong.imageUrl;
+                updatedSong.metadata = status.metadata || updatedSong.metadata;
+
+                if (status.status === 'complete') {
+                  updatedSong.completedAt = Date.now();
+                  clearInterval(interval);
+                  songStatusIntervals.delete(song.clipId);
+                } else if (status.status === 'error') {
+                  clearInterval(interval);
+                  songStatusIntervals.delete(song.clipId);
+                }
+
+                // Re-render to show updates
+                renderSongs();
+              } else {
+                // Song not found, stop checking
+                clearInterval(interval);
+                songStatusIntervals.delete(song.clipId);
+              }
+            } catch (error) {
+              console.error('Failed to check song status:', error);
+            }
+          }, 5000); // Check every 5 seconds
+
+          songStatusIntervals.set(song.clipId, interval);
+        }
+      });
+    }
+
     // Generate song
     async function generateSong() {
       const customPrompt = document.getElementById('custom-prompt').value.trim();
@@ -552,12 +972,16 @@
             <div class="status-message success">
               <strong>Song generation started!</strong><br>
               Clip ID: ${result.clipId}<br>
+              Song ID: ${result.songId}<br>
               Photos used: ${result.selectedPhotos}<br>
               Transcriptions used: ${result.selectedTranscriptions}<br>
               Prompt: "${result.prompt}"<br>
-              <em>Checking status...</em>
+              <em>Checking status... (~30-60s for streaming)</em>
             </div>
           `;
+
+          // Refresh song gallery to show the new song
+          await loadSongs();
 
           // Start polling for status
           startStatusPolling();
@@ -660,6 +1084,7 @@
     setInterval(() => {
       loadGallery();
       loadTranscriptions();
+      loadSongs();
     }, 10000); // Refresh every 10 seconds
 
     // Initialize on page load

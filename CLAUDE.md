@@ -41,14 +41,17 @@ Copy `.env.example` to `.env` and configure these values before running the app.
 - **Data Management**: In-memory storage system with Maps tracking:
   - `photoGalleries`: User photo collections (up to 50 photos per user)
   - `transcriptionHistory`: User speech history (up to 100 entries per user)
+  - `songGalleries`: Generated song collections (up to 25 songs per user)
+  - `activeGenerations`: Tracks ongoing Suno API generations
   - `isStreamingPhotos`: Streaming mode state per user
   - `nextPhotoTime`: Next photo capture time for streaming
 
 - **Enhanced Web Interface** (`views/enhanced-interface.ejs`): Multi-tab interface featuring:
   - Photo gallery with selection capabilities
   - Transcription history with timestamps and activation indicators
+  - Song gallery with playback, favorites, and management
   - Music studio for AI song generation
-  - Real-time status updates and audio playback
+  - Real-time status updates and streaming audio support
   - Responsive design optimized for various screen sizes
 
 ### API Endpoints
@@ -66,9 +69,12 @@ Copy `.env.example` to `.env` and configure these values before running the app.
 - `GET /api/transcriptions`: Returns user's transcription history
 - `POST /api/transcriptions/select`: Toggle transcription selection status
 
-**Music Generation:**
+**Music Generation & Gallery:**
 - `POST /api/generate-song`: Generate song using selected photos and transcriptions
 - `GET /api/song-status/:clipId`: Check Suno generation status and get audio URL
+- `GET /api/songs`: Get user's complete song gallery with metadata
+- `POST /api/songs/favorite`: Toggle song favorite status
+- `DELETE /api/songs/:songId`: Delete a song from the gallery
 
 ### Interaction Model
 
@@ -170,12 +176,14 @@ Requires a `.env.local` file with:
 ## Development Notes
 
 - All data is stored in memory only - consider implementing persistent storage for production use
-- Photos are limited to 50 per user, transcriptions to 100 per user (automatic cleanup)
+- Storage limits: 50 photos, 100 transcriptions, 25 songs per user (automatic cleanup)
 - The streaming interval is set to check every 1 second with 30-second fallback timeouts
 - All operations are user-scoped and require MentraOS authentication
 - Voice transcription only processes final speech results, ignoring interim transcriptions
 - Multiple activation phrases are supported for natural voice interaction
 - Suno integration requires a separate API key and builds prompts from selected content
-- The webview interface includes auto-refresh for real-time updates
-- Song generation uses polling every 5 seconds to check Suno API status
+- The webview interface includes auto-refresh every 10 seconds for real-time updates
+- Song generation uses individual polling every 5 seconds per active generation
+- Streaming audio is available ~30-60 seconds after generation starts
+- Song gallery supports favorites, deletion, and real-time status updates
 - The separate Suno starter app operates independently and uses yarn instead of bun
