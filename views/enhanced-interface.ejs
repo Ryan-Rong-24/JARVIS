@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Enhanced Photo & Audio Interface</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 20px;
+      background-color: #1a1a1a;
+      color: white;
+      font-family: Arial, sans-serif;
+      line-height: 1.6;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+
+    .header h1 {
+      color: #4CAF50;
+      margin-bottom: 10px;
+    }
+
+    .tabs {
+      display: flex;
+      background-color: #333;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      overflow: hidden;
+    }
+
+    .tab {
+      flex: 1;
+      padding: 15px;
+      background-color: #444;
+      border: none;
+      color: white;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+
+    .tab.active {
+      background-color: #4CAF50;
+    }
+
+    .tab:hover {
+      background-color: #555;
+    }
+
+    .tab.active:hover {
+      background-color: #45a049;
+    }
+
+    .tab-content {
+      display: none;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    .gallery {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 15px;
+      margin-bottom: 20px;
+    }
+
+    .photo-item {
+      position: relative;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 3px solid transparent;
+      transition: border-color 0.3s;
+      cursor: pointer;
+    }
+
+    .photo-item.selected {
+      border-color: #4CAF50;
+    }
+
+    .photo-item img {
+      width: 100%;
+      height: 150px;
+      object-fit: cover;
+      display: block;
+    }
+
+    .photo-item .photo-info {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: rgba(0, 0, 0, 0.8);
+      padding: 8px;
+      font-size: 12px;
+    }
+
+    .photo-item .selection-indicator {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background-color: rgba(0, 0, 0, 0.6);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+    }
+
+    .photo-item.selected .selection-indicator {
+      background-color: #4CAF50;
+    }
+
+    .transcription-list {
+      max-height: 400px;
+      overflow-y: auto;
+    }
+
+    .transcription-item {
+      background-color: #333;
+      margin-bottom: 10px;
+      padding: 15px;
+      border-radius: 8px;
+      border: 2px solid transparent;
+      cursor: pointer;
+      transition: border-color 0.3s, background-color 0.3s;
+    }
+
+    .transcription-item:hover {
+      background-color: #444;
+    }
+
+    .transcription-item.selected {
+      border-color: #4CAF50;
+      background-color: #2a4a2a;
+    }
+
+    .transcription-item .transcription-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .transcription-item .timestamp {
+      font-size: 12px;
+      color: #888;
+    }
+
+    .transcription-item .activation-badge {
+      background-color: #ff9800;
+      color: white;
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+
+    .transcription-item .text {
+      font-size: 14px;
+    }
+
+    .song-generation {
+      background-color: #2a2a2a;
+      padding: 20px;
+      border-radius: 8px;
+      margin-top: 20px;
+    }
+
+    .form-group {
+      margin-bottom: 15px;
+    }
+
+    .form-group label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: bold;
+    }
+
+    .form-group input, .form-group textarea {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #555;
+      border-radius: 4px;
+      background-color: #444;
+      color: white;
+      box-sizing: border-box;
+    }
+
+    .form-group textarea {
+      resize: vertical;
+      height: 80px;
+    }
+
+    .generate-btn {
+      background-color: #4CAF50;
+      color: white;
+      padding: 12px 24px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 16px;
+      transition: background-color 0.3s;
+    }
+
+    .generate-btn:hover {
+      background-color: #45a049;
+    }
+
+    .generate-btn:disabled {
+      background-color: #666;
+      cursor: not-allowed;
+    }
+
+    .status-message {
+      margin-top: 15px;
+      padding: 10px;
+      border-radius: 4px;
+    }
+
+    .status-message.success {
+      background-color: #2a5a2a;
+      border: 1px solid #4CAF50;
+    }
+
+    .status-message.error {
+      background-color: #5a2a2a;
+      border: 1px solid #f44336;
+    }
+
+    .audio-player {
+      margin-top: 15px;
+    }
+
+    .audio-player audio {
+      width: 100%;
+      height: 40px;
+    }
+
+    .selection-summary {
+      background-color: #333;
+      padding: 15px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+    }
+
+    .loading {
+      text-align: center;
+      color: #888;
+      padding: 40px;
+    }
+
+    .empty-state {
+      text-align: center;
+      color: #888;
+      padding: 40px;
+    }
+
+    @media (max-width: 768px) {
+      .gallery {
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      }
+
+      .tabs {
+        flex-direction: column;
+      }
+
+      .photo-item img {
+        height: 120px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🎵 Photo & Audio Studio</h1>
+      <p>Select photos and transcriptions to generate unique songs</p>
+    </div>
+
+    <div class="tabs">
+      <button class="tab active" onclick="switchTab('gallery')">📸 Photo Gallery</button>
+      <button class="tab" onclick="switchTab('transcriptions')">🎤 Transcriptions</button>
+      <button class="tab" onclick="switchTab('studio')">🎵 Music Studio</button>
+    </div>
+
+    <div id="gallery-tab" class="tab-content active">
+      <div class="selection-summary">
+        <strong>Selected Photos:</strong> <span id="selected-photos-count">0</span>
+      </div>
+      <div id="gallery-container" class="loading">
+        Loading photos...
+      </div>
+    </div>
+
+    <div id="transcriptions-tab" class="tab-content">
+      <div class="selection-summary">
+        <strong>Selected Transcriptions:</strong> <span id="selected-transcriptions-count">0</span>
+      </div>
+      <div id="transcriptions-container" class="loading">
+        Loading transcriptions...
+      </div>
+    </div>
+
+    <div id="studio-tab" class="tab-content">
+      <div class="song-generation">
+        <h2>🎵 Generate Song</h2>
+        <div class="selection-summary">
+          <div><strong>Selected Photos:</strong> <span id="studio-photos-count">0</span></div>
+          <div><strong>Selected Transcriptions:</strong> <span id="studio-transcriptions-count">0</span></div>
+        </div>
+
+        <div class="form-group">
+          <label for="custom-prompt">Custom Prompt (optional):</label>
+          <textarea id="custom-prompt" placeholder="Describe the mood or theme you want for your song..."></textarea>
+        </div>
+
+        <div class="form-group">
+          <label for="song-tags">Music Style Tags:</label>
+          <input type="text" id="song-tags" placeholder="ambient, acoustic, upbeat, rock, jazz..." value="ambient, atmospheric, reflective">
+        </div>
+
+        <button id="generate-btn" class="generate-btn" onclick="generateSong()">
+          🎵 Generate Song
+        </button>
+
+        <div id="status-container"></div>
+        <div id="audio-container"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let gallery = [];
+    let transcriptions = [];
+    let currentClipId = null;
+    let statusCheckInterval = null;
+
+    // Initialize the interface
+    async function init() {
+      await loadGallery();
+      await loadTranscriptions();
+      updateSelectionCounts();
+    }
+
+    // Tab switching
+    function switchTab(tabName) {
+      document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+
+      document.querySelector(`button[onclick="switchTab('${tabName}')"]`).classList.add('active');
+      document.getElementById(`${tabName}-tab`).classList.add('active');
+
+      updateSelectionCounts();
+    }
+
+    // Load photo gallery
+    async function loadGallery() {
+      try {
+        const response = await fetch('/api/gallery');
+        const data = await response.json();
+        gallery = data.photos || [];
+        renderGallery();
+      } catch (error) {
+        console.error('Failed to load gallery:', error);
+        document.getElementById('gallery-container').innerHTML =
+          '<div class="empty-state">Failed to load photos</div>';
+      }
+    }
+
+    // Load transcription history
+    async function loadTranscriptions() {
+      try {
+        const response = await fetch('/api/transcriptions');
+        const data = await response.json();
+        transcriptions = data.transcriptions || [];
+        renderTranscriptions();
+      } catch (error) {
+        console.error('Failed to load transcriptions:', error);
+        document.getElementById('transcriptions-container').innerHTML =
+          '<div class="empty-state">Failed to load transcriptions</div>';
+      }
+    }
+
+    // Render photo gallery
+    function renderGallery() {
+      const container = document.getElementById('gallery-container');
+
+      if (gallery.length === 0) {
+        container.innerHTML = '<div class="empty-state">No photos yet. Take some photos using voice commands or button presses!</div>';
+        return;
+      }
+
+      container.innerHTML = '';
+      const galleryDiv = document.createElement('div');
+      galleryDiv.className = 'gallery';
+
+      gallery.forEach(photo => {
+        const item = document.createElement('div');
+        item.className = `photo-item ${photo.selected ? 'selected' : ''}`;
+        item.onclick = () => togglePhotoSelection(photo.requestId);
+
+        item.innerHTML = `
+          <img src="/api/photo/${photo.requestId}" alt="Photo" loading="lazy">
+          <div class="selection-indicator">
+            ${photo.selected ? '✓' : ''}
+          </div>
+          <div class="photo-info">
+            ${new Date(photo.timestamp).toLocaleString()}
+            <br>
+            ${(photo.size / 1024).toFixed(1)} KB
+          </div>
+        `;
+
+        galleryDiv.appendChild(item);
+      });
+
+      container.appendChild(galleryDiv);
+    }
+
+    // Render transcription history
+    function renderTranscriptions() {
+      const container = document.getElementById('transcriptions-container');
+
+      if (transcriptions.length === 0) {
+        container.innerHTML = '<div class="empty-state">No transcriptions yet. Try speaking while using the app!</div>';
+        return;
+      }
+
+      container.innerHTML = '';
+      const listDiv = document.createElement('div');
+      listDiv.className = 'transcription-list';
+
+      // Sort by timestamp, newest first
+      const sortedTranscriptions = [...transcriptions].sort((a, b) => b.timestamp - a.timestamp);
+
+      sortedTranscriptions.forEach(transcription => {
+        const item = document.createElement('div');
+        item.className = `transcription-item ${transcription.selected ? 'selected' : ''}`;
+        item.onclick = () => toggleTranscriptionSelection(transcription.id);
+
+        item.innerHTML = `
+          <div class="transcription-header">
+            <span class="timestamp">${new Date(transcription.timestamp).toLocaleString()}</span>
+            ${transcription.isActivationPhrase ? '<span class="activation-badge">ACTIVATION</span>' : ''}
+          </div>
+          <div class="text">${transcription.text}</div>
+        `;
+
+        listDiv.appendChild(item);
+      });
+
+      container.appendChild(listDiv);
+    }
+
+    // Toggle photo selection
+    async function togglePhotoSelection(requestId) {
+      const photo = gallery.find(p => p.requestId === requestId);
+      if (!photo) return;
+
+      const newSelected = !photo.selected;
+
+      try {
+        const response = await fetch('/api/gallery/select', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ requestId, selected: newSelected })
+        });
+
+        if (response.ok) {
+          photo.selected = newSelected;
+          renderGallery();
+          updateSelectionCounts();
+        }
+      } catch (error) {
+        console.error('Failed to toggle photo selection:', error);
+      }
+    }
+
+    // Toggle transcription selection
+    async function toggleTranscriptionSelection(id) {
+      const transcription = transcriptions.find(t => t.id === id);
+      if (!transcription) return;
+
+      const newSelected = !transcription.selected;
+
+      try {
+        const response = await fetch('/api/transcriptions/select', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id, selected: newSelected })
+        });
+
+        if (response.ok) {
+          transcription.selected = newSelected;
+          renderTranscriptions();
+          updateSelectionCounts();
+        }
+      } catch (error) {
+        console.error('Failed to toggle transcription selection:', error);
+      }
+    }
+
+    // Update selection counts
+    function updateSelectionCounts() {
+      const selectedPhotos = gallery.filter(p => p.selected).length;
+      const selectedTranscriptions = transcriptions.filter(t => t.selected).length;
+
+      document.getElementById('selected-photos-count').textContent = selectedPhotos;
+      document.getElementById('selected-transcriptions-count').textContent = selectedTranscriptions;
+      document.getElementById('studio-photos-count').textContent = selectedPhotos;
+      document.getElementById('studio-transcriptions-count').textContent = selectedTranscriptions;
+    }
+
+    // Generate song
+    async function generateSong() {
+      const customPrompt = document.getElementById('custom-prompt').value.trim();
+      const tags = document.getElementById('song-tags').value.trim();
+      const generateBtn = document.getElementById('generate-btn');
+      const statusContainer = document.getElementById('status-container');
+      const audioContainer = document.getElementById('audio-container');
+
+      generateBtn.disabled = true;
+      generateBtn.textContent = '🎵 Generating...';
+
+      statusContainer.innerHTML = '';
+      audioContainer.innerHTML = '';
+
+      try {
+        const response = await fetch('/api/generate-song', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ customPrompt, tags })
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+          currentClipId = result.clipId;
+
+          statusContainer.innerHTML = `
+            <div class="status-message success">
+              <strong>Song generation started!</strong><br>
+              Clip ID: ${result.clipId}<br>
+              Photos used: ${result.selectedPhotos}<br>
+              Transcriptions used: ${result.selectedTranscriptions}<br>
+              Prompt: "${result.prompt}"<br>
+              <em>Checking status...</em>
+            </div>
+          `;
+
+          // Start polling for status
+          startStatusPolling();
+        } else {
+          throw new Error(result.error || 'Generation failed');
+        }
+      } catch (error) {
+        statusContainer.innerHTML = `
+          <div class="status-message error">
+            <strong>Error:</strong> ${error.message}
+          </div>
+        `;
+        generateBtn.disabled = false;
+        generateBtn.textContent = '🎵 Generate Song';
+      }
+    }
+
+    // Start polling for song generation status
+    function startStatusPolling() {
+      if (statusCheckInterval) {
+        clearInterval(statusCheckInterval);
+      }
+
+      statusCheckInterval = setInterval(async () => {
+        if (!currentClipId) return;
+
+        try {
+          const response = await fetch(`/api/song-status/${currentClipId}`);
+          const status = await response.json();
+
+          const statusContainer = document.getElementById('status-container');
+          const audioContainer = document.getElementById('audio-container');
+
+          if (status.status === 'complete' && status.audio_url) {
+            clearInterval(statusCheckInterval);
+
+            statusContainer.innerHTML = `
+              <div class="status-message success">
+                <strong>Song completed!</strong><br>
+                Title: ${status.title || 'Untitled'}<br>
+                <em>Ready to play!</em>
+              </div>
+            `;
+
+            audioContainer.innerHTML = `
+              <div class="audio-player">
+                <h3>🎵 ${status.title || 'Your Generated Song'}</h3>
+                <audio controls>
+                  <source src="${status.audio_url}" type="audio/mpeg">
+                  Your browser does not support the audio element.
+                </audio>
+              </div>
+            `;
+
+            const generateBtn = document.getElementById('generate-btn');
+            generateBtn.disabled = false;
+            generateBtn.textContent = '🎵 Generate Another Song';
+
+          } else if (status.status === 'streaming' && status.audio_url) {
+            statusContainer.innerHTML = `
+              <div class="status-message success">
+                <strong>Song is generating...</strong><br>
+                Title: ${status.title || 'Generating...'}<br>
+                <em>Streaming preview available!</em>
+              </div>
+            `;
+
+            if (!audioContainer.innerHTML) {
+              audioContainer.innerHTML = `
+                <div class="audio-player">
+                  <h3>🎵 ${status.title || 'Preview'} (Streaming)</h3>
+                  <audio controls>
+                    <source src="${status.audio_url}" type="audio/mpeg">
+                    Your browser does not support the audio element.
+                  </audio>
+                </div>
+              `;
+            }
+
+          } else if (status.status === 'error') {
+            clearInterval(statusCheckInterval);
+
+            statusContainer.innerHTML = `
+              <div class="status-message error">
+                <strong>Generation failed:</strong> ${status.metadata?.error_message || 'Unknown error'}
+              </div>
+            `;
+
+            const generateBtn = document.getElementById('generate-btn');
+            generateBtn.disabled = false;
+            generateBtn.textContent = '🎵 Try Again';
+          }
+        } catch (error) {
+          console.error('Status check failed:', error);
+        }
+      }, 5000); // Check every 5 seconds
+    }
+
+    // Refresh data periodically
+    setInterval(() => {
+      loadGallery();
+      loadTranscriptions();
+    }, 10000); // Refresh every 10 seconds
+
+    // Initialize on page load
+    init();
+  </script>
+</body>
+</html>
