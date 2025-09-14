@@ -2,6 +2,7 @@ import { AppServer, AppSession, ViewType, AuthenticatedRequest, PhotoData } from
 import { Request, Response } from 'express';
 import * as ejs from 'ejs';
 import * as path from 'path';
+import Anthropic from '@anthropic-ai/sdk';
 
 /**
  * Interface representing a stored photo with metadata
@@ -15,6 +16,8 @@ interface StoredPhoto {
   filename: string;
   size: number;
   selected?: boolean;
+  caption?: string;
+  captionGenerated?: boolean;
 }
 
 /**
@@ -62,7 +65,13 @@ interface GeneratedSong {
 
 const PACKAGE_NAME = process.env.PACKAGE_NAME ?? (() => { throw new Error('PACKAGE_NAME is not set in .env file'); })();
 const MENTRAOS_API_KEY = process.env.MENTRAOS_API_KEY ?? (() => { throw new Error('MENTRAOS_API_KEY is not set in .env file'); })();
+const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY; // Optional - captions will be skipped if not provided
 const PORT = parseInt(process.env.PORT || '3000');
+
+// Initialize Anthropic client if API key is provided
+const anthropic = ANTHROPIC_API_KEY ? new Anthropic({
+  apiKey: ANTHROPIC_API_KEY,
+}) : null;
 
 /**
  * Voice activation phrases that trigger photo capture
@@ -232,6 +241,48 @@ class ExampleMentraOSApp extends AppServer {
   }
 
   /**
+   * Generate a caption for a photo using Claude Vision API
+   */
+  private async generatePhotoCaption(photoBuffer: Buffer, mimeType: string): Promise<string | null> {
+    if (!anthropic) {
+      this.logger.debug('Anthropic API key not configured, skipping caption generation');
+      return null;
+    }
+
+    try {
+      // Convert buffer to base64
+      const base64Image = photoBuffer.toString('base64');
+
+      const response = await anthropic.messages.create({
+        model: 'claude-3-5-sonnet-20241022',
+        max_tokens: 200,
+        messages: [{
+          role: 'user',
+          content: [{
+            type: 'image',
+            source: {
+              type: 'base64',
+              media_type: mimeType as 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp',
+              data: base64Image,
+            },
+          }, {
+            type: 'text',
+            text: 'Describe this image in 1-2 sentences, focusing on the main subject, setting, mood, and any notable details. Keep it concise and vivid for music generation.'
+          }]
+        }]
+      });
+
+      const caption = response.content[0].type === 'text' ? response.content[0].text : null;
+      this.logger.info(`Generated caption: ${caption?.slice(0, 100)}...`);
+      return caption;
+
+    } catch (error) {
+      this.logger.error('Failed to generate photo caption:', error);
+      return null;
+    }
+  }
+
+  /**
    * Add a photo to the user's gallery
    */
   private addPhotoToGallery(photo: PhotoData, userId: string): void {
@@ -247,7 +298,9 @@ class ExampleMentraOSApp extends AppServer {
       mimeType: photo.mimeType,
       filename: photo.filename,
       size: photo.size,
-      selected: false
+      selected: false,
+      caption: undefined,
+      captionGenerated: false
     };
 
     const gallery = this.photoGalleries.get(userId)!;
@@ -259,6 +312,25 @@ class ExampleMentraOSApp extends AppServer {
     }
 
     this.logger.info(`Added photo to gallery for user ${userId}, total photos: ${gallery.length}`);
+
+    // Generate caption asynchronously (don't block photo storage)
+    this.generateCaptionAsync(storedPhoto);
+  }
+
+  /**
+   * Generate caption asynchronously and update photo in gallery
+   */
+  private async generateCaptionAsync(storedPhoto: StoredPhoto): Promise<void> {
+    try {
+      const caption = await this.generatePhotoCaption(storedPhoto.buffer, storedPhoto.mimeType);
+      storedPhoto.caption = caption || undefined;
+      storedPhoto.captionGenerated = true;
+
+      this.logger.debug(`Caption generated for photo ${storedPhoto.requestId}: ${caption?.slice(0, 50)}...`);
+    } catch (error) {
+      this.logger.error(`Failed to generate caption for photo ${storedPhoto.requestId}:`, error);
+      storedPhoto.captionGenerated = true; // Mark as attempted even if failed
+    }
   }
 
   /**
@@ -392,7 +464,9 @@ class ExampleMentraOSApp extends AppServer {
           filename: photo.filename,
           size: photo.size,
           mimeType: photo.mimeType,
-          selected: photo.selected || false
+          selected: photo.selected || false,
+          caption: photo.caption,
+          captionGenerated: photo.captionGenerated || false
         }))
       });
     });
@@ -510,21 +584,33 @@ class ExampleMentraOSApp extends AppServer {
         let songPrompt = '';
 
         if (customPrompt) {
-          songPrompt += customPrompt;
+          songPrompt += customPrompt + ' ';
         } else {
           songPrompt += 'A song inspired by captured moments and conversations. ';
         }
 
+        // Add photo captions to the prompt (with length limits)
         if (selectedPhotos.length > 0) {
-          songPrompt += `Based on ${selectedPhotos.length} memorable photo${selectedPhotos.length > 1 ? 's' : ''}. `;
+          const photoCaptions = selectedPhotos
+            .filter(p => p.caption)
+            .map(p => p.caption?.slice(0, 100)) // Limit each caption to 100 chars
+            .join('. ')
+            .slice(0, 400); // Limit total photo captions to 400 chars
+
+          if (photoCaptions) {
+            songPrompt += `Visual inspiration from ${selectedPhotos.length} photo${selectedPhotos.length > 1 ? 's' : ''}: ${photoCaptions}. `;
+          } else {
+            songPrompt += `Based on ${selectedPhotos.length} memorable photo${selectedPhotos.length > 1 ? 's' : ''}. `;
+          }
         }
 
+        // Add transcription content
         if (selectedTranscriptions.length > 0) {
           const transcriptionText = selectedTranscriptions
             .map(t => t.text)
             .join(' ')
             .slice(0, 500); // Limit length
-          songPrompt += `Incorporating themes from: "${transcriptionText}". `;
+          songPrompt += `Incorporating themes from spoken words: "${transcriptionText}". `;
         }
 
         // Make request to Suno API (using environment variable for API key)
@@ -534,6 +620,24 @@ class ExampleMentraOSApp extends AppServer {
           return;
         }
 
+        // Ensure prompt doesn't exceed Suno's limits
+        const finalPrompt = songPrompt.slice(0, 2400); // Leave some buffer under 2500 limit
+
+        const requestBody = {
+          topic: finalPrompt,
+          tags: tags || 'ambient, atmospheric, reflective',
+          make_instrumental: false,
+        };
+
+        this.logger.info('Sending Suno API request:', {
+          url: 'https://studio-api.prod.suno.com/api/v2/external/hackmit/generate',
+          promptLength: finalPrompt.length,
+          selectedPhotos: selectedPhotos.length,
+          selectedTranscriptions: selectedTranscriptions.length,
+          body: requestBody,
+          apiKeyPrefix: sunoApiKey.slice(0, 8) + '...'
+        });
+
         const response = await fetch(
           'https://studio-api.prod.suno.com/api/v2/external/hackmit/generate',
           {
@@ -542,18 +646,21 @@ class ExampleMentraOSApp extends AppServer {
               'Authorization': `Bearer ${sunoApiKey}`,
               'Content-Type': 'application/json',
             },
-            body: JSON.stringify({
-              topic: songPrompt.slice(0, 2500), // Suno limit
-              tags: tags || 'ambient, atmospheric, reflective',
-              make_instrumental: false,
-            }),
+            body: JSON.stringify(requestBody),
           }
         );
 
         if (!response.ok) {
           const errorText = await response.text();
-          this.logger.error('Suno API error:', errorText);
-          res.status(500).json({ error: 'Failed to generate song' });
+          this.logger.error('Suno API generation error:', {
+            status: response.status,
+            statusText: response.statusText,
+            error: errorText
+          });
+          res.status(500).json({
+            error: 'Failed to generate song',
+            details: `HTTP ${response.status}: ${errorText}`
+          });
           return;
         }
 
@@ -564,7 +671,7 @@ class ExampleMentraOSApp extends AppServer {
         const song = this.addSongToGallery(
           userId,
           result.id,
-          songPrompt.slice(0, 2500),
+          finalPrompt,
           tags || 'ambient, atmospheric, reflective',
           selectedPhotos.length,
           selectedTranscriptions.length
@@ -575,7 +682,8 @@ class ExampleMentraOSApp extends AppServer {
           clipId: result.id,
           songId: song.id,
           status: result.status,
-          prompt: songPrompt.slice(0, 2500),
+          prompt: finalPrompt,
+          promptLength: finalPrompt.length,
           selectedPhotos: selectedPhotos.length,
           selectedTranscriptions: selectedTranscriptions.length
         });
@@ -614,7 +722,16 @@ class ExampleMentraOSApp extends AppServer {
         );
 
         if (!response.ok) {
-          res.status(500).json({ error: 'Failed to check song status' });
+          const errorText = await response.text();
+          this.logger.error('Suno API status check error:', {
+            status: response.status,
+            statusText: response.statusText,
+            error: errorText
+          });
+          res.status(500).json({
+            error: 'Failed to check song status',
+            details: `HTTP ${response.status}: ${errorText}`
+          });
           return;
         }
 

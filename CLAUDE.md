@@ -4,10 +4,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is an enhanced MentraOS application that combines camera functionality, voice transcription, and AI music generation. The app demonstrates how to:
+This is an enhanced MentraOS application that combines camera functionality, voice transcription, AI photo captioning, and AI music generation. The app demonstrates how to:
 - Take photos from smart glasses with voice activation
+- Generate automatic captions for photos using Claude Vision API
 - Maintain photo galleries and transcription history
-- Generate AI music using Suno API based on selected photos and transcriptions
+- Generate contextual AI music using Suno API with photo captions and transcriptions
 - Provide a rich web interface for content selection and music creation
 
 ## Development Commands
@@ -25,6 +26,7 @@ The application requires a `.env` file with these variables:
 - `PACKAGE_NAME`: Unique app identifier matching MentraOS Developer Console
 - `MENTRAOS_API_KEY`: API key from MentraOS Developer Console
 - `SUNO_API_KEY`: API key from Suno for music generation (optional)
+- `ANTHROPIC_API_KEY`: Claude API key for photo captioning (optional)
 
 Copy `.env.example` to `.env` and configure these values before running the app.
 
@@ -34,8 +36,9 @@ Copy `.env.example` to `.env` and configure these values before running the app.
 
 - **ExampleMentraOSApp class** (`src/index.ts`): Enhanced application server extending `@mentra/sdk` AppServer
   - Handles MentraOS session lifecycle with photo capture and voice transcription
-  - Manages photo galleries and transcription history per user
-  - Integrates with Suno API for AI music generation
+  - Manages photo galleries with automatic Claude Vision captioning
+  - Stores transcription history per user
+  - Integrates with Suno API for contextual AI music generation
   - Provides comprehensive REST API endpoints
 
 - **Data Management**: In-memory storage system with Maps tracking:
@@ -181,7 +184,9 @@ Requires a `.env.local` file with:
 - All operations are user-scoped and require MentraOS authentication
 - Voice transcription only processes final speech results, ignoring interim transcriptions
 - Multiple activation phrases are supported for natural voice interaction
-- Suno integration requires a separate API key and builds prompts from selected content
+- Photo captions are generated asynchronously using Claude Vision API (Claude 3.5 Sonnet)
+- Caption generation is optional - photos work without captions if no Anthropic API key
+- Suno integration uses photo captions and transcriptions to create contextual song prompts
 - The webview interface includes auto-refresh every 10 seconds for real-time updates
 - Song generation uses individual polling every 5 seconds per active generation
 - Streaming audio is available ~30-60 seconds after generation starts
