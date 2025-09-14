@@ -484,6 +484,81 @@
         height: 120px;
       }
     }
+
+    /* Shopping tab styles */
+    .shopping-interface {
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    .shopping-controls {
+      background-color: #333;
+      padding: 20px;
+      border-radius: 8px;
+      margin-bottom: 30px;
+    }
+
+    .btn {
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 16px;
+      transition: background-color 0.3s;
+    }
+
+    .btn:hover {
+      background-color: #45a049;
+    }
+
+    .btn-primary {
+      background-color: #2196F3;
+    }
+
+    .btn-primary:hover {
+      background-color: #1976D2;
+    }
+
+    .voice-commands {
+      background-color: #2a2a2a;
+      padding: 20px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+    }
+
+    .command-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 15px;
+    }
+
+    .command {
+      background-color: #444;
+      padding: 8px 12px;
+      border-radius: 20px;
+      font-style: italic;
+      color: #ddd;
+      border: 1px solid #555;
+    }
+
+    .status-message {
+      padding: 15px;
+      border-radius: 8px;
+      margin-top: 20px;
+    }
+
+    .status-message.success {
+      background-color: #4CAF50;
+      color: white;
+    }
+
+    .status-message.error {
+      background-color: #f44336;
+      color: white;
+    }
   </style>
 </head>
 <body>
@@ -498,6 +573,7 @@
       <button class="tab" onclick="switchTab('transcriptions')">🎤 Transcriptions</button>
       <button class="tab" onclick="switchTab('songs')">🎵 Song Gallery</button>
       <button class="tab" onclick="switchTab('studio')">🎵 Music Studio</button>
+      <button class="tab" onclick="switchTab('shopping')">🛒 Shopping</button>
     </div>
 
     <div id="gallery-tab" class="tab-content active">
@@ -552,6 +628,34 @@
 
         <div id="status-container"></div>
         <div id="audio-container"></div>
+      </div>
+    </div>
+
+    <div id="shopping-tab" class="tab-content">
+      <div class="shopping-interface">
+        <h2>🛒 Voice Shopping</h2>
+        <p>Use voice commands with your MentraOS glasses to shop, or click below to test shopping interface:</p>
+
+        <div class="shopping-controls">
+          <div class="form-group">
+            <label for="shopping-query">What would you like to buy?</label>
+            <input type="text" id="shopping-query" placeholder="e.g., coffee, headphones, groceries..." />
+          </div>
+          <button onclick="startShopping()" class="btn btn-primary">🛒 Start Shopping</button>
+        </div>
+
+        <div class="voice-commands">
+          <h3>Voice Commands</h3>
+          <p>Say any of these phrases through your MentraOS glasses:</p>
+          <div class="command-list">
+            <span class="command">"buy coffee"</span>
+            <span class="command">"purchase headphones"</span>
+            <span class="command">"order groceries"</span>
+            <span class="command">"shopping for books"</span>
+          </div>
+        </div>
+
+        <div id="shopping-status" class="status-message" style="display: none;"></div>
       </div>
     </div>
   </div>
@@ -1115,6 +1219,25 @@
       loadTranscriptions();
       loadSongs();
     }, 10000); // Refresh every 10 seconds
+
+    // Start shopping function
+    function startShopping() {
+      const query = document.getElementById('shopping-query').value.trim();
+      const statusDiv = document.getElementById('shopping-status');
+
+      if (!query) {
+        statusDiv.innerHTML = '<div class="status-message error">Please enter what you would like to buy.</div>';
+        statusDiv.style.display = 'block';
+        return;
+      }
+
+      statusDiv.innerHTML = '<div class="status-message">🔄 Opening shopping interface...</div>';
+      statusDiv.style.display = 'block';
+
+      // Navigate to shopping interface in same tab
+      const shoppingUrl = `/shopping?sessionId=manual&query=${encodeURIComponent(query)}`;
+      window.location.href = shoppingUrl;
+    }
 
     // Initialize on page load
     init();

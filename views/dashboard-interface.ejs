@@ -1,0 +1,3014 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Jarvis</title>
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+  <style>
+    :root {
+      --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      --secondary-gradient: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+      --accent-gradient: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+      --dark-bg: #0f0f1a;
+      --darker-bg: #0a0a12;
+      --glass-bg: rgba(15, 15, 26, 0.8);
+      --border-color: rgba(255, 255, 255, 0.1);
+      --text-primary: #ffffff;
+      --text-secondary: #a0a0a0;
+      --success-color: #4ade80;
+      --error-color: #ef4444;
+      --warning-color: #f59e0b;
+      --cyan-color: #06b6d4;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      background: var(--dark-bg);
+      color: var(--text-primary);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    /* Background Pattern */
+    .bg-pattern {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-image:
+        radial-gradient(circle at 25% 25%, rgba(102, 126, 234, 0.1) 0%, transparent 50%),
+        radial-gradient(circle at 75% 75%, rgba(118, 75, 162, 0.1) 0%, transparent 50%),
+        linear-gradient(45deg, transparent 49%, rgba(255, 255, 255, 0.01) 50%, transparent 51%);
+      background-size: 400px 400px, 400px 400px, 20px 20px;
+      pointer-events: none;
+      z-index: -1;
+    }
+
+    /* Mobile Navigation */
+    .mobile-nav {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      background: var(--glass-bg);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border-color);
+      z-index: 1000;
+      padding: 1rem;
+    }
+
+    .mobile-nav-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .mobile-nav-title {
+      font-size: 1.5rem;
+      font-weight: bold;
+      background: var(--primary-gradient);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .mobile-menu-toggle {
+      background: none;
+      border: none;
+      color: var(--text-primary);
+      font-size: 1.5rem;
+      cursor: pointer;
+      padding: 0.5rem;
+      border-radius: 8px;
+      transition: background 0.2s;
+    }
+
+    .mobile-menu-toggle:hover {
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    /* Bottom Navigation */
+    .bottom-nav {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: var(--glass-bg);
+      backdrop-filter: blur(20px);
+      border-top: 1px solid var(--border-color);
+      z-index: 1000;
+      padding: 0.5rem 0;
+      transform: translateY(0);
+      transition: transform 0.3s;
+    }
+
+    .bottom-nav.hidden {
+      transform: translateY(100%);
+    }
+
+    .bottom-nav-items {
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    .nav-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 0.5rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      border-radius: 12px;
+      min-width: 60px;
+    }
+
+    .nav-item.active {
+      background: rgba(102, 126, 234, 0.2);
+      transform: scale(1.05);
+    }
+
+    .nav-item i {
+      font-size: 1.2rem;
+      margin-bottom: 0.25rem;
+    }
+
+    .nav-item span {
+      font-size: 0.7rem;
+      font-weight: 500;
+      opacity: 0.8;
+    }
+
+    .nav-item.active span {
+      opacity: 1;
+    }
+
+    /* Main Container */
+    .container {
+      min-height: 100vh;
+      padding: 80px 1rem 80px 1rem;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    /* Glass Panel Effect */
+    .glass-panel {
+      background: var(--glass-bg);
+      backdrop-filter: blur(20px);
+      border: 1px solid var(--border-color);
+      border-radius: 20px;
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    }
+
+    /* Tab Content */
+    .tab-content {
+      display: none;
+    }
+
+    .tab-content.active {
+      display: block;
+      animation: fadeIn 0.3s ease-in-out;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Dashboard Header */
+    .dashboard-header {
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+
+    .dashboard-title {
+      font-size: 2.5rem;
+      font-weight: bold;
+      background: var(--primary-gradient);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 0.5rem;
+    }
+
+    .dashboard-subtitle {
+      color: var(--text-secondary);
+      font-size: 1rem;
+    }
+
+    /* Status Cards */
+    .status-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+
+    .status-card {
+      background: var(--glass-bg);
+      backdrop-filter: blur(20px);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      padding: 1.5rem;
+      text-align: center;
+      transition: all 0.3s;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .status-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: var(--primary-gradient);
+    }
+
+    .status-card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 12px 40px rgba(102, 126, 234, 0.3);
+    }
+
+    .status-icon {
+      width: 60px;
+      height: 60px;
+      margin: 0 auto 1rem;
+      background: var(--primary-gradient);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.5rem;
+    }
+
+    .status-value {
+      font-size: 2rem;
+      font-weight: bold;
+      color: var(--text-primary);
+      margin-bottom: 0.5rem;
+    }
+
+    .status-label {
+      color: var(--text-secondary);
+      font-size: 0.9rem;
+    }
+
+    /* Gallery Grid */
+    .gallery-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+      gap: 1.5rem;
+      margin-bottom: 2rem;
+    }
+
+    .gallery-item {
+      background: var(--glass-bg);
+      border: 2px solid transparent;
+      border-radius: 16px;
+      overflow: hidden;
+      transition: all 0.3s;
+      cursor: pointer;
+      position: relative;
+    }
+
+    .gallery-item:hover {
+      transform: translateY(-5px);
+      border-color: var(--cyan-color);
+    }
+
+    .gallery-item.selected {
+      border-color: var(--success-color);
+      background: rgba(74, 222, 128, 0.1);
+    }
+
+    .gallery-item img {
+      width: 100%;
+      height: 200px;
+      object-fit: cover;
+    }
+
+    .gallery-item-info {
+      padding: 1rem;
+    }
+
+    .gallery-item-title {
+      font-size: 0.9rem;
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+      color: var(--text-primary);
+    }
+
+    .gallery-item-subtitle {
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+      line-height: 1.4;
+    }
+
+    .selection-indicator {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      width: 32px;
+      height: 32px;
+      background: var(--glass-bg);
+      border: 2px solid var(--border-color);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.9rem;
+      transition: all 0.3s;
+    }
+
+    .gallery-item.selected .selection-indicator {
+      background: var(--success-color);
+      border-color: var(--success-color);
+      color: white;
+    }
+
+    /* Transcription List */
+    .transcription-list {
+      max-height: 500px;
+      overflow-y: auto;
+    }
+
+    .transcription-item {
+      background: var(--glass-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 1rem;
+      margin-bottom: 1rem;
+      transition: all 0.3s;
+      cursor: pointer;
+    }
+
+    .transcription-item:hover {
+      border-color: var(--cyan-color);
+      transform: translateX(5px);
+    }
+
+    .transcription-item.selected {
+      border-color: var(--success-color);
+      background: rgba(74, 222, 128, 0.1);
+    }
+
+    .transcription-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.5rem;
+    }
+
+    .transcription-timestamp {
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+    }
+
+    .activation-badge {
+      background: var(--warning-color);
+      color: white;
+      padding: 0.25rem 0.5rem;
+      border-radius: 12px;
+      font-size: 0.7rem;
+      font-weight: 600;
+    }
+
+    .transcription-text {
+      color: var(--text-primary);
+      line-height: 1.5;
+    }
+
+    /* Music Studio */
+    .studio-form {
+      background: var(--glass-bg);
+      border-radius: 16px;
+      padding: 2rem;
+      margin-bottom: 2rem;
+    }
+
+    .form-group {
+      margin-bottom: 1.5rem;
+    }
+
+    .form-label {
+      display: block;
+      margin-bottom: 0.5rem;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .form-input, .form-textarea {
+      width: 100%;
+      padding: 1rem;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      color: var(--text-primary);
+      font-size: 1rem;
+      transition: all 0.3s;
+    }
+
+    .form-input:focus, .form-textarea:focus {
+      outline: none;
+      border-color: var(--cyan-color);
+      box-shadow: 0 0 0 3px rgba(6, 182, 212, 0.1);
+    }
+
+    .form-textarea {
+      min-height: 100px;
+      resize: vertical;
+    }
+
+    /* Buttons */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 1rem 2rem;
+      background: var(--primary-gradient);
+      color: white;
+      border: none;
+      border-radius: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+      font-size: 1rem;
+    }
+
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+    }
+
+    .btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .btn-secondary {
+      background: var(--secondary-gradient);
+    }
+
+    .btn-success {
+      background: linear-gradient(135deg, var(--success-color), #22c55e);
+    }
+
+    .btn-danger {
+      background: linear-gradient(135deg, var(--error-color), #dc2626);
+    }
+
+    /* Song Gallery */
+    .song-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+      gap: 1.5rem;
+      margin-bottom: 2rem;
+    }
+
+    .song-card {
+      background: var(--glass-bg);
+      border-radius: 16px;
+      overflow: hidden;
+      transition: all 0.3s;
+      border: 1px solid var(--border-color);
+    }
+
+    .song-card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
+    }
+
+    .song-artwork {
+      width: 100%;
+      height: 150px;
+      background: var(--primary-gradient);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .song-artwork img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .song-info {
+      padding: 1.5rem;
+    }
+
+    .song-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 1rem;
+    }
+
+    .song-title {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin: 0;
+      flex: 1;
+      margin-right: 1rem;
+    }
+
+    .song-actions {
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    .song-action {
+      width: 36px;
+      height: 36px;
+      background: rgba(255, 255, 255, 0.1);
+      border: none;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      color: var(--text-secondary);
+    }
+
+    .song-action:hover {
+      background: rgba(255, 255, 255, 0.2);
+      color: var(--text-primary);
+    }
+
+    .song-action.favorite {
+      color: var(--warning-color);
+    }
+
+    .song-status {
+      display: inline-block;
+      padding: 0.25rem 0.75rem;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      margin-bottom: 0.75rem;
+    }
+
+    .song-status.complete {
+      background: rgba(74, 222, 128, 0.2);
+      color: var(--success-color);
+    }
+
+    .song-status.streaming {
+      background: rgba(245, 158, 11, 0.2);
+      color: var(--warning-color);
+      animation: pulse 2s infinite;
+    }
+
+    .song-status.submitted,
+    .song-status.queued {
+      background: rgba(107, 114, 128, 0.2);
+      color: var(--text-secondary);
+    }
+
+    .song-status.error {
+      background: rgba(239, 68, 68, 0.2);
+      color: var(--error-color);
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.7; }
+    }
+
+    .song-meta {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+      margin-bottom: 1rem;
+    }
+
+    /* Audio Player */
+    .audio-player {
+      margin-top: 1rem;
+    }
+
+    .audio-player audio {
+      width: 100%;
+      height: 40px;
+      border-radius: 8px;
+    }
+
+    /* Custom Audio Controls */
+    .custom-audio-controls {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      padding: 0.75rem;
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 12px;
+      border: 1px solid var(--border-color);
+    }
+
+    .play-pause-btn {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: var(--primary-gradient);
+      border: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.3s;
+      color: white;
+      flex-shrink: 0;
+    }
+
+    .play-pause-btn:hover {
+      transform: scale(1.05);
+      box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+    }
+
+    .play-pause-btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .audio-progress {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .progress-bar {
+      width: 100%;
+      height: 6px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 3px;
+      margin-bottom: 0.5rem;
+      cursor: pointer;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: var(--primary-gradient);
+      border-radius: 3px;
+      width: 0%;
+      transition: width 0.1s ease;
+    }
+
+    .time-display {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+    }
+
+    .volume-control {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      flex-shrink: 0;
+    }
+
+    .volume-slider {
+      width: 60px;
+      height: 4px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 2px;
+      outline: none;
+      cursor: pointer;
+      -webkit-appearance: none;
+    }
+
+    .volume-slider::-webkit-slider-thumb {
+      appearance: none;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: var(--cyan-color);
+      cursor: pointer;
+    }
+
+    .volume-slider::-moz-range-thumb {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: var(--cyan-color);
+      cursor: pointer;
+      border: none;
+    }
+
+    /* Now Playing Indicator */
+    .song-card.now-playing {
+      border-color: var(--cyan-color);
+      background: rgba(6, 182, 212, 0.1);
+      box-shadow: 0 0 20px rgba(6, 182, 212, 0.3);
+    }
+
+    .song-card.now-playing .song-title::after {
+      content: " 🎵";
+    }
+
+    /* Loading States */
+    .loading {
+      text-align: center;
+      padding: 3rem;
+      color: var(--text-secondary);
+    }
+
+    .spinner {
+      width: 40px;
+      height: 40px;
+      border: 3px solid rgba(255, 255, 255, 0.1);
+      border-top: 3px solid var(--cyan-color);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 1rem;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    /* Empty States */
+    .empty-state {
+      text-align: center;
+      padding: 3rem;
+      color: var(--text-secondary);
+    }
+
+    .empty-icon {
+      width: 80px;
+      height: 80px;
+      margin: 0 auto 1rem;
+      background: var(--primary-gradient);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2rem;
+      opacity: 0.6;
+    }
+
+    /* Calendar Integration */
+    .calendar-overlay {
+      background: var(--glass-bg);
+      border-radius: 16px;
+      padding: 2rem;
+      border: 1px solid var(--border-color);
+      margin-bottom: 2rem;
+    }
+
+    .calendar-header {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .calendar-icon {
+      width: 48px;
+      height: 48px;
+      background: var(--secondary-gradient);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.2rem;
+    }
+
+    .calendar-title {
+      font-size: 1.3rem;
+      font-weight: 600;
+    }
+
+    .event-item {
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 12px;
+      padding: 1rem;
+      margin-bottom: 1rem;
+      border-left: 4px solid var(--cyan-color);
+    }
+
+    .event-title {
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+    }
+
+    .event-time {
+      color: var(--text-secondary);
+      font-size: 0.9rem;
+    }
+
+    /* Voice Recording */
+    .voice-recorder {
+      text-align: center;
+      padding: 2rem;
+    }
+
+    .record-button {
+      width: 120px;
+      height: 120px;
+      border-radius: 50%;
+      background: var(--accent-gradient);
+      border: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2rem;
+      cursor: pointer;
+      margin: 0 auto 1rem;
+      transition: all 0.3s;
+      box-shadow: 0 8px 25px rgba(250, 112, 154, 0.3);
+    }
+
+    .record-button:hover {
+      transform: scale(1.05);
+    }
+
+    .record-button.recording {
+      animation: pulse 1.5s infinite;
+      background: linear-gradient(135deg, var(--error-color), #dc2626);
+    }
+
+    .recording-time {
+      font-size: 1.5rem;
+      font-weight: bold;
+      color: var(--text-primary);
+      margin-bottom: 0.5rem;
+    }
+
+    .recording-status {
+      color: var(--text-secondary);
+    }
+
+    /* Responsive Design */
+    @media (max-width: 768px) {
+      .dashboard-title {
+        font-size: 2rem;
+      }
+
+      .status-grid {
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      }
+
+      .gallery-grid {
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      }
+
+      .song-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .glass-panel {
+        padding: 1rem;
+      }
+
+      .container {
+        padding: 80px 0.5rem 80px 0.5rem;
+      }
+
+      .gallery-item img {
+        height: 150px;
+      }
+
+      .record-button {
+        width: 100px;
+        height: 100px;
+        font-size: 1.5rem;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .dashboard-title {
+        font-size: 1.5rem;
+      }
+
+      .status-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .gallery-grid {
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        gap: 1rem;
+      }
+
+      .gallery-item img {
+        height: 120px;
+      }
+
+      .nav-item span {
+        display: none;
+      }
+
+      .studio-form {
+        padding: 1rem;
+      }
+
+      .song-info {
+        padding: 1rem;
+      }
+    }
+
+    /* Accessibility */
+    @media (prefers-reduced-motion: reduce) {
+      * {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+
+    /* Focus styles for keyboard navigation */
+    .nav-item:focus,
+    .btn:focus,
+    .gallery-item:focus,
+    .transcription-item:focus {
+      outline: 2px solid var(--cyan-color);
+      outline-offset: 2px;
+    }
+
+    /* Additional utility classes */
+    .text-gradient {
+      background: var(--primary-gradient);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .fade-in {
+      animation: fadeIn 0.6s ease-out;
+    }
+
+    .slide-in {
+      animation: slideIn 0.4s ease-out;
+    }
+
+    @keyframes slideIn {
+      from {
+        transform: translateX(-20px);
+        opacity: 0;
+      }
+      to {
+        transform: translateX(0);
+        opacity: 1;
+      }
+    }
+
+    /* Audio Management Styles */
+    .audio-error-notification {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: rgba(220, 38, 127, 0.95);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(220, 38, 127, 0.3);
+      border-radius: 12px;
+      padding: 16px 20px;
+      z-index: 10000;
+      animation: slideInRight 0.3s ease-out;
+      max-width: 300px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    }
+
+    .error-content {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: white;
+      font-size: 0.9rem;
+    }
+
+    .error-content i {
+      font-size: 1.1rem;
+      flex-shrink: 0;
+    }
+
+    @keyframes slideInRight {
+      from {
+        transform: translateX(100%);
+        opacity: 0;
+      }
+      to {
+        transform: translateX(0);
+        opacity: 1;
+      }
+    }
+
+    /* Playing song highlight */
+    .song-item.playing {
+      background: linear-gradient(135deg, rgba(34, 211, 238, 0.15), rgba(147, 51, 234, 0.15));
+      border-color: rgba(34, 211, 238, 0.4);
+      box-shadow: 0 0 20px rgba(34, 211, 238, 0.2);
+    }
+
+    .song-item.playing .song-title {
+      color: var(--cyan-color);
+    }
+
+    /* Custom audio controls styling */
+    .custom-audio-controls {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 0;
+      margin-top: 8px;
+    }
+
+    .audio-progress-container {
+      flex: 1;
+      height: 6px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 3px;
+      overflow: hidden;
+      cursor: pointer;
+    }
+
+    .audio-progress-fill {
+      height: 100%;
+      background: var(--primary-gradient);
+      width: 0%;
+      transition: width 0.1s ease;
+      border-radius: 3px;
+    }
+
+    .audio-time {
+      font-size: 0.75rem;
+      color: rgba(255, 255, 255, 0.7);
+      min-width: 35px;
+    }
+
+    .volume-control {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .volume-slider {
+      width: 60px;
+      height: 4px;
+      border-radius: 2px;
+      background: rgba(255, 255, 255, 0.1);
+      outline: none;
+      -webkit-appearance: none;
+    }
+
+    .volume-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--cyan-color);
+      cursor: pointer;
+    }
+
+    .volume-slider::-moz-range-thumb {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--cyan-color);
+      cursor: pointer;
+      border: none;
+    }
+
+    .spinner {
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+  <div class="bg-pattern"></div>
+
+  <!-- Mobile Navigation -->
+  <nav class="mobile-nav">
+    <div class="mobile-nav-header">
+      <h1 class="mobile-nav-title">MentraOS Dashboard</h1>
+      <button class="mobile-menu-toggle" onclick="toggleMobileMenu()">
+        <i data-lucide="menu"></i>
+      </button>
+    </div>
+  </nav>
+
+  <!-- Bottom Navigation -->
+  <nav class="bottom-nav" id="bottomNav">
+    <div class="bottom-nav-items">
+      <div class="nav-item active" onclick="switchTab('dashboard')" tabindex="0">
+        <i data-lucide="layout-dashboard"></i>
+        <span>Dashboard</span>
+      </div>
+      <div class="nav-item" onclick="switchTab('gallery')" tabindex="0">
+        <i data-lucide="camera"></i>
+        <span>Gallery</span>
+      </div>
+      <div class="nav-item" onclick="switchTab('voice')" tabindex="0">
+        <i data-lucide="mic"></i>
+        <span>Voice</span>
+      </div>
+      <div class="nav-item" onclick="switchTab('music')" tabindex="0">
+        <i data-lucide="music"></i>
+        <span>Music</span>
+      </div>
+      <div class="nav-item" onclick="switchTab('calendar')" tabindex="0">
+        <i data-lucide="calendar"></i>
+        <span>Calendar</span>
+      </div>
+      <div class="nav-item" onclick="switchTab('shopping')" tabindex="0">
+        <i data-lucide="shopping-bag"></i>
+        <span>Shop</span>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Main Container -->
+  <div class="container">
+
+    <!-- Dashboard Tab -->
+    <div id="dashboard-tab" class="tab-content active">
+      <div class="dashboard-header fade-in">
+        <h1 class="dashboard-title">Jarvis</h1>
+        <p class="dashboard-subtitle">Your AI-powered smart glasses assistant</p>
+      </div>
+
+      <div class="status-grid">
+        <div class="status-card fade-in">
+          <div class="status-icon">
+            <i data-lucide="camera"></i>
+          </div>
+          <div class="status-value" id="dashboard-photos-count">0</div>
+          <div class="status-label">Photos Captured</div>
+        </div>
+
+        <div class="status-card fade-in">
+          <div class="status-icon">
+            <i data-lucide="mic"></i>
+          </div>
+          <div class="status-value" id="dashboard-transcriptions-count">0</div>
+          <div class="status-label">Voice Transcriptions</div>
+        </div>
+
+        <div class="status-card fade-in">
+          <div class="status-icon">
+            <i data-lucide="music"></i>
+          </div>
+          <div class="status-value" id="dashboard-songs-count">0</div>
+          <div class="status-label">Songs Generated</div>
+        </div>
+
+        <div class="status-card fade-in">
+          <div class="status-icon">
+            <i data-lucide="calendar"></i>
+          </div>
+          <div class="status-value" id="dashboard-events-count">0</div>
+          <div class="status-label">Calendar Events</div>
+        </div>
+      </div>
+
+      <!-- Recent Activity -->
+      <div class="glass-panel fade-in">
+        <h2 style="margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
+          <i data-lucide="activity"></i>
+          Recent Activity
+        </h2>
+        <div id="recent-activity">
+          <div class="loading">
+            <div class="spinner"></div>
+            Loading recent activity...
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Gallery Tab -->
+    <div id="gallery-tab" class="tab-content">
+      <div class="glass-panel">
+        <h2 style="margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
+          <i data-lucide="camera"></i>
+          Photo Gallery
+        </h2>
+        <p style="color: var(--text-secondary); margin-bottom: 1rem;">
+          Selected Photos: <strong id="selected-photos-count">0</strong>
+        </p>
+        <div id="gallery-container" class="loading">
+          <div class="spinner"></div>
+          Loading photos...
+        </div>
+      </div>
+    </div>
+
+    <!-- Voice Tab -->
+    <div id="voice-tab" class="tab-content">
+      <div class="glass-panel">
+        <h2 style="margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
+          <i data-lucide="mic"></i>
+          Voice Transcriptions
+        </h2>
+        <p style="color: var(--text-secondary); margin-bottom: 1rem;">
+          Selected Transcriptions: <strong id="selected-transcriptions-count">0</strong>
+        </p>
+        <div id="transcriptions-container" class="loading">
+          <div class="spinner"></div>
+          Loading transcriptions...
+        </div>
+      </div>
+    </div>
+
+    <!-- Music Tab -->
+    <div id="music-tab" class="tab-content">
+      <!-- Music Studio -->
+      <div class="studio-form">
+        <h2 style="margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.5rem;">
+          <i data-lucide="music"></i>
+          Music Studio
+        </h2>
+
+        <div style="margin-bottom: 1.5rem; color: var(--text-secondary);">
+          <div style="margin-bottom: 0.5rem;">Selected Photos: <strong id="studio-photos-count">0</strong></div>
+          <div>Selected Transcriptions: <strong id="studio-transcriptions-count">0</strong></div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="custom-prompt">
+            <i data-lucide="edit-3" style="display: inline; margin-right: 0.5rem;"></i>
+            Song Description
+          </label>
+          <textarea
+            id="custom-prompt"
+            class="form-textarea"
+            placeholder="Describe the mood or theme you want for your song..."
+          ></textarea>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="song-tags">
+            <i data-lucide="tag" style="display: inline; margin-right: 0.5rem;"></i>
+            Music Style Tags
+          </label>
+          <input
+            type="text"
+            id="song-tags"
+            class="form-input"
+            placeholder="ambient, acoustic, upbeat, rock, jazz..."
+            value="ambient, atmospheric, reflective"
+          >
+        </div>
+
+        <button id="generate-btn" class="btn" onclick="generateSong()">
+          <i data-lucide="sparkles"></i>
+          Generate Song
+        </button>
+
+        <div id="status-container" style="margin-top: 1rem;"></div>
+        <div id="audio-container" style="margin-top: 1rem;"></div>
+      </div>
+
+      <!-- Song Gallery -->
+      <div class="glass-panel">
+        <h2 style="margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
+          <i data-lucide="headphones"></i>
+          Song Gallery
+        </h2>
+        <p style="color: var(--text-secondary); margin-bottom: 1rem;">
+          Total Songs: <strong id="total-songs-count">0</strong> |
+          Favorites: <strong id="favorite-songs-count">0</strong>
+        </p>
+        <div id="songs-container" class="loading">
+          <div class="spinner"></div>
+          Loading songs...
+        </div>
+      </div>
+    </div>
+
+    <!-- Calendar Tab -->
+    <div id="calendar-tab" class="tab-content">
+      <div class="calendar-overlay">
+        <div class="calendar-header">
+          <div class="calendar-icon">
+            <i data-lucide="calendar"></i>
+          </div>
+          <div>
+            <h2 class="calendar-title">Calendar AI Assistant</h2>
+            <p style="color: var(--text-secondary);">Manage your schedule with voice commands</p>
+          </div>
+        </div>
+
+        <!-- Voice Recorder for Calendar -->
+        <div class="voice-recorder">
+          <button id="calendar-record-btn" class="record-button" onclick="toggleCalendarRecording()">
+            <i data-lucide="mic"></i>
+          </button>
+          <div id="calendar-recording-time" class="recording-time" style="display: none;">00:00</div>
+          <div id="calendar-recording-status" class="recording-status">
+            Click to start recording calendar commands
+          </div>
+        </div>
+
+        <!-- Transcription Display -->
+        <div id="calendar-transcription" style="display: none; margin-top: 1rem;">
+          <div style="background: rgba(255,255,255,0.05); padding: 1rem; border-radius: 12px;">
+            <h4 style="margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem;">
+              <i data-lucide="message-square"></i>
+              Transcription
+            </h4>
+            <div id="calendar-transcription-text" style="color: var(--text-secondary);"></div>
+          </div>
+        </div>
+
+        <!-- Calendar Response -->
+        <div id="calendar-response" style="display: none; margin-top: 1rem;">
+          <div style="background: rgba(6, 182, 212, 0.1); padding: 1rem; border-radius: 12px; border-left: 4px solid var(--cyan-color);">
+            <h4 style="margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem;">
+              <i data-lucide="bot"></i>
+              Calendar Assistant
+            </h4>
+            <div id="calendar-response-text"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Today's Events -->
+      <div class="glass-panel">
+        <h3 style="margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
+          <i data-lucide="clock"></i>
+          Today's Events
+        </h3>
+        <div id="calendar-events">
+          <div class="loading">
+            <div class="spinner"></div>
+            Loading calendar events...
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Shopping Tab -->
+    <div id="shopping-tab" class="tab-content">
+      <div class="glass-panel">
+        <h2 style="margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
+          <i data-lucide="shopping-bag"></i>
+          Voice Shopping
+        </h2>
+        <p style="color: var(--text-secondary); margin-bottom: 2rem;">
+          Use voice commands with your MentraOS glasses to shop, or start a shopping session below
+        </p>
+
+        <div class="form-group">
+          <label class="form-label" for="shopping-query">
+            <i data-lucide="search" style="display: inline; margin-right: 0.5rem;"></i>
+            What would you like to buy?
+          </label>
+          <input
+            type="text"
+            id="shopping-query"
+            class="form-input"
+            placeholder="e.g., coffee, headphones, groceries..."
+          >
+        </div>
+
+        <button class="btn btn-secondary" onclick="startShopping()">
+          <i data-lucide="shopping-cart"></i>
+          Start Shopping
+        </button>
+
+        <!-- Voice Commands Guide -->
+        <div style="margin-top: 2rem; padding: 1.5rem; background: rgba(255,255,255,0.05); border-radius: 12px;">
+          <h3 style="margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
+            <i data-lucide="volume-2"></i>
+            Voice Commands
+          </h3>
+          <p style="color: var(--text-secondary); margin-bottom: 1rem;">
+            Say any of these phrases through your MentraOS glasses:
+          </p>
+          <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
+            <span style="background: rgba(255,255,255,0.1); padding: 0.5rem 1rem; border-radius: 20px; font-size: 0.9rem;">"buy coffee"</span>
+            <span style="background: rgba(255,255,255,0.1); padding: 0.5rem 1rem; border-radius: 20px; font-size: 0.9rem;">"purchase headphones"</span>
+            <span style="background: rgba(255,255,255,0.1); padding: 0.5rem 1rem; border-radius: 20px; font-size: 0.9rem;">"order groceries"</span>
+            <span style="background: rgba(255,255,255,0.1); padding: 0.5rem 1rem; border-radius: 20px; font-size: 0.9rem;">"shopping for books"</span>
+          </div>
+        </div>
+
+        <div id="shopping-status" style="display: none; margin-top: 1rem;"></div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    // Initialize Lucide icons
+    lucide.createIcons();
+
+    // Global variables
+    let gallery = [];
+    let transcriptions = [];
+    let songs = [];
+    let calendarEvents = [];
+    let currentClipId = null;
+    let statusCheckInterval = null;
+    let songStatusIntervals = new Map();
+
+    // Audio management system
+    class AudioManager {
+      constructor() {
+        this.currentAudio = null;
+        this.audioQueue = [];
+        this.isPlaying = false;
+        this.playbackPromises = new Map();
+      }
+
+      // Play audio with await support and queue management
+      async playAudio(audioUrl, audioId, options = {}) {
+        return new Promise(async (resolve, reject) => {
+          try {
+            // Stop any currently playing audio
+            this.stopAll();
+
+            // Create new audio element
+            const audio = new Audio(audioUrl);
+            audio.volume = options.volume || 0.8;
+            audio.preload = 'auto';
+
+            // Set up event listeners
+            const onEnded = () => {
+              this.cleanup(audio, audioId);
+              resolve('completed');
+            };
+
+            const onError = (error) => {
+              this.cleanup(audio, audioId);
+              reject(error);
+            };
+
+            const onLoadedData = () => {
+              console.log(`Audio loaded: ${audioId}`);
+            };
+
+            const onCanPlay = async () => {
+              try {
+                await audio.play();
+                this.currentAudio = audio;
+                this.isPlaying = true;
+                console.log(`Audio playing: ${audioId}`);
+              } catch (playError) {
+                console.error('Error playing audio:', playError);
+                this.cleanup(audio, audioId);
+                reject(playError);
+              }
+            };
+
+            audio.addEventListener('ended', onEnded);
+            audio.addEventListener('error', onError);
+            audio.addEventListener('loadeddata', onLoadedData);
+            audio.addEventListener('canplay', onCanPlay);
+
+            // Store promise for potential cancellation
+            this.playbackPromises.set(audioId, { resolve, reject, audio });
+
+            // Load the audio
+            audio.load();
+
+          } catch (error) {
+            reject(error);
+          }
+        });
+      }
+
+      // Stop all audio playback
+      stopAll() {
+        if (this.currentAudio) {
+          this.currentAudio.pause();
+          this.currentAudio.currentTime = 0;
+          this.currentAudio = null;
+        }
+        this.isPlaying = false;
+
+        // Resolve any pending promises
+        this.playbackPromises.forEach(({ resolve, audio }) => {
+          if (audio) {
+            audio.pause();
+            audio.currentTime = 0;
+          }
+          resolve('stopped');
+        });
+        this.playbackPromises.clear();
+      }
+
+      // Cleanup audio element
+      cleanup(audio, audioId) {
+        if (audio) {
+          audio.pause();
+          audio.currentTime = 0;
+          audio.src = '';
+        }
+        if (this.currentAudio === audio) {
+          this.currentAudio = null;
+          this.isPlaying = false;
+        }
+        this.playbackPromises.delete(audioId);
+      }
+
+      // Check if audio is currently playing
+      isCurrentlyPlaying() {
+        return this.isPlaying;
+      }
+
+      // Get current audio element
+      getCurrentAudio() {
+        return this.currentAudio;
+      }
+
+      // Pause current audio (without stopping)
+      pause() {
+        if (this.currentAudio) {
+          this.currentAudio.pause();
+          this.isPlaying = false;
+        }
+      }
+
+      // Resume paused audio
+      async resume() {
+        if (this.currentAudio && this.currentAudio.paused) {
+          try {
+            await this.currentAudio.play();
+            this.isPlaying = true;
+          } catch (error) {
+            console.error('Error resuming audio:', error);
+          }
+        }
+      }
+    }
+
+    // Create global audio manager instance
+    const audioManager = new AudioManager();
+
+    // Current playing song tracking
+    let currentPlayingSongId = null;
+    let progressIntervals = new Map();
+
+    // Toggle song playback with await functionality
+    async function toggleSongPlayback(songId, audioUrl, songTitle) {
+      const playBtn = document.getElementById(`play-btn-${songId}`);
+
+      try {
+        if (currentPlayingSongId === songId && audioManager.isCurrentlyPlaying()) {
+          // Stop current song
+          audioManager.stopAll();
+          updatePlayButton(songId, 'play');
+          clearProgressTracking(songId);
+          removeSongHighlight(songId);
+          currentPlayingSongId = null;
+          console.log(`Stopped playing: ${songTitle}`);
+        } else {
+          // Stop any other playing song
+          if (currentPlayingSongId) {
+            updatePlayButton(currentPlayingSongId, 'play');
+            clearProgressTracking(currentPlayingSongId);
+            removeSongHighlight(currentPlayingSongId);
+          }
+
+          // Start playing this song
+          updatePlayButton(songId, 'loading');
+          addSongHighlight(songId);
+          currentPlayingSongId = songId;
+
+          console.log(`Starting playback: ${songTitle}`);
+
+          // Use AudioManager with await
+          const result = await audioManager.playAudio(audioUrl, songId, {
+            volume: getVolumeForSong(songId)
+          });
+
+          console.log(`Playback result for ${songTitle}: ${result}`);
+
+          if (result === 'completed') {
+            updatePlayButton(songId, 'play');
+            clearProgressTracking(songId);
+            removeSongHighlight(songId);
+            currentPlayingSongId = null;
+          } else if (result === 'stopped') {
+            updatePlayButton(songId, 'play');
+            clearProgressTracking(songId);
+            removeSongHighlight(songId);
+            if (currentPlayingSongId === songId) {
+              currentPlayingSongId = null;
+            }
+          }
+        }
+      } catch (error) {
+        console.error(`Error playing ${songTitle}:`, error);
+        updatePlayButton(songId, 'play');
+        clearProgressTracking(songId);
+        removeSongHighlight(songId);
+        if (currentPlayingSongId === songId) {
+          currentPlayingSongId = null;
+        }
+
+        // Show error to user
+        showAudioError(`Failed to play "${songTitle}". Please try again.`);
+      }
+    }
+
+    // Update play button appearance
+    function updatePlayButton(songId, state) {
+      const playBtn = document.getElementById(`play-btn-${songId}`);
+      if (!playBtn) return;
+
+      const icon = playBtn.querySelector('i');
+      if (!icon) return;
+
+      switch (state) {
+        case 'play':
+          playBtn.disabled = false;
+          icon.setAttribute('data-lucide', 'play');
+          break;
+        case 'pause':
+          playBtn.disabled = false;
+          icon.setAttribute('data-lucide', 'pause');
+          startProgressTracking(songId);
+          break;
+        case 'loading':
+          playBtn.disabled = true;
+          icon.setAttribute('data-lucide', 'loader-2');
+          icon.classList.add('spinner');
+          break;
+      }
+
+      lucide.createIcons();
+
+      // Update button after audio starts playing
+      if (state === 'loading') {
+        setTimeout(() => {
+          if (audioManager.isCurrentlyPlaying() && currentPlayingSongId === songId) {
+            updatePlayButton(songId, 'pause');
+          }
+        }, 500);
+      }
+    }
+
+    // Start tracking playback progress
+    function startProgressTracking(songId) {
+      clearProgressTracking(songId);
+
+      const interval = setInterval(() => {
+        const audio = audioManager.getCurrentAudio();
+        if (!audio || currentPlayingSongId !== songId) {
+          clearProgressTracking(songId);
+          return;
+        }
+
+        updateProgress(songId, audio.currentTime, audio.duration);
+      }, 100);
+
+      progressIntervals.set(songId, interval);
+    }
+
+    // Clear progress tracking
+    function clearProgressTracking(songId) {
+      const interval = progressIntervals.get(songId);
+      if (interval) {
+        clearInterval(interval);
+        progressIntervals.delete(songId);
+      }
+    }
+
+    // Update progress bar and time display
+    function updateProgress(songId, currentTime, duration) {
+      const progressFill = document.getElementById(`progress-fill-${songId}`);
+      const currentTimeEl = document.getElementById(`current-time-${songId}`);
+      const durationEl = document.getElementById(`duration-${songId}`);
+
+      if (progressFill && duration > 0) {
+        const percentage = (currentTime / duration) * 100;
+        progressFill.style.width = `${percentage}%`;
+      }
+
+      if (currentTimeEl) {
+        currentTimeEl.textContent = formatTime(currentTime);
+      }
+
+      if (durationEl && duration > 0) {
+        durationEl.textContent = formatTime(duration);
+      }
+    }
+
+    // Format time in MM:SS format
+    function formatTime(seconds) {
+      if (!seconds || isNaN(seconds)) return '0:00';
+      const mins = Math.floor(seconds / 60);
+      const secs = Math.floor(seconds % 60);
+      return `${mins}:${secs.toString().padStart(2, '0')}`;
+    }
+
+    // Update volume for a song
+    function updateVolume(songId, volume) {
+      if (currentPlayingSongId === songId && audioManager.getCurrentAudio()) {
+        audioManager.getCurrentAudio().volume = parseFloat(volume);
+      }
+    }
+
+    // Get current volume for a song
+    function getVolumeForSong(songId) {
+      const volumeSlider = document.getElementById(`volume-${songId}`);
+      return volumeSlider ? parseFloat(volumeSlider.value) : 0.7;
+    }
+
+    // Add visual highlight to currently playing song
+    function addSongHighlight(songId) {
+      const songItem = document.querySelector(`[data-song-id="${songId}"]`);
+      if (songItem) {
+        songItem.classList.add('playing');
+      }
+    }
+
+    // Remove visual highlight from song
+    function removeSongHighlight(songId) {
+      const songItem = document.querySelector(`[data-song-id="${songId}"]`);
+      if (songItem) {
+        songItem.classList.remove('playing');
+      }
+    }
+
+    // Show audio error message
+    function showAudioError(message) {
+      // Create error notification
+      const errorDiv = document.createElement('div');
+      errorDiv.className = 'audio-error-notification';
+      errorDiv.innerHTML = `
+        <div class="error-content">
+          <i data-lucide="alert-circle"></i>
+          <span>${message}</span>
+        </div>
+      `;
+
+      document.body.appendChild(errorDiv);
+      lucide.createIcons();
+
+      // Auto-remove after 5 seconds
+      setTimeout(() => {
+        if (errorDiv.parentNode) {
+          errorDiv.parentNode.removeChild(errorDiv);
+        }
+      }, 5000);
+    }
+
+    // Play status update audio (for TTS feedback)
+    async function playStatusAudio(message, options = {}) {
+      const audioOptions = {
+        stability: options.stability || 0.8,
+        speed: options.speed || 0.9,
+        ...options
+      };
+
+      try {
+        console.log(`Playing status audio: ${message}`);
+        // This would integrate with TTS service (ElevenLabs)
+        // For now, just console log
+        // In production, this would make a TTS API call and play the audio
+        return true;
+      } catch (error) {
+        console.error('Error playing status audio:', error);
+        return false;
+      }
+    }
+
+    // Seek to specific position in audio
+    function seekAudio(songId, event) {
+      if (currentPlayingSongId !== songId || !audioManager.getCurrentAudio()) {
+        return;
+      }
+
+      const progressContainer = event.currentTarget;
+      const rect = progressContainer.getBoundingClientRect();
+      const clickX = event.clientX - rect.left;
+      const percentage = clickX / rect.width;
+
+      const audio = audioManager.getCurrentAudio();
+      if (audio.duration) {
+        const newTime = percentage * audio.duration;
+        audio.currentTime = newTime;
+        updateProgress(songId, newTime, audio.duration);
+      }
+    }
+
+    // Play generated song using AudioManager
+    async function playGeneratedSong(clipId, audioUrl, title) {
+      const songId = `generated-${clipId}`;
+      const streamingId = `streaming-${clipId}`;
+
+      try {
+        // Try to find the correct play button
+        let playBtn = document.getElementById(`play-btn-generated-${clipId}`);
+        if (!playBtn) {
+          playBtn = document.getElementById(`play-btn-streaming-${clipId}`);
+        }
+
+        if (currentPlayingSongId === songId && audioManager.isCurrentlyPlaying()) {
+          // Stop current song
+          audioManager.stopAll();
+          updateGeneratedPlayButton(clipId, 'play');
+          clearGeneratedProgressTracking(clipId);
+          currentPlayingSongId = null;
+          console.log(`Stopped playing generated song: ${title}`);
+        } else {
+          // Stop any other playing song
+          if (currentPlayingSongId) {
+            if (currentPlayingSongId.startsWith('generated-') || currentPlayingSongId.startsWith('streaming-')) {
+              const oldClipId = currentPlayingSongId.replace('generated-', '').replace('streaming-', '');
+              updateGeneratedPlayButton(oldClipId, 'play');
+              clearGeneratedProgressTracking(oldClipId);
+            } else {
+              updatePlayButton(currentPlayingSongId, 'play');
+              clearProgressTracking(currentPlayingSongId);
+              removeSongHighlight(currentPlayingSongId);
+            }
+          }
+
+          // Start playing this song
+          updateGeneratedPlayButton(clipId, 'loading');
+          currentPlayingSongId = songId;
+
+          console.log(`Starting playback of generated song: ${title}`);
+
+          // Use AudioManager with await
+          const result = await audioManager.playAudio(audioUrl, songId, {
+            volume: 0.8
+          });
+
+          console.log(`Playback result for generated song ${title}: ${result}`);
+
+          if (result === 'completed') {
+            updateGeneratedPlayButton(clipId, 'play');
+            clearGeneratedProgressTracking(clipId);
+            currentPlayingSongId = null;
+          } else if (result === 'stopped') {
+            updateGeneratedPlayButton(clipId, 'play');
+            clearGeneratedProgressTracking(clipId);
+            if (currentPlayingSongId === songId) {
+              currentPlayingSongId = null;
+            }
+          }
+        }
+      } catch (error) {
+        console.error(`Error playing generated song ${title}:`, error);
+        updateGeneratedPlayButton(clipId, 'play');
+        clearGeneratedProgressTracking(clipId);
+        if (currentPlayingSongId === songId) {
+          currentPlayingSongId = null;
+        }
+        showAudioError(`Failed to play "${title}". Please try again.`);
+      }
+    }
+
+    // Update generated song play button
+    function updateGeneratedPlayButton(clipId, state) {
+      const playBtns = [
+        document.getElementById(`play-btn-generated-${clipId}`),
+        document.getElementById(`play-btn-streaming-${clipId}`)
+      ].filter(btn => btn);
+
+      playBtns.forEach(playBtn => {
+        const icon = playBtn.querySelector('i');
+        if (!icon) return;
+
+        switch (state) {
+          case 'play':
+            playBtn.disabled = false;
+            icon.setAttribute('data-lucide', 'play');
+            icon.classList.remove('spinner');
+            break;
+          case 'pause':
+            playBtn.disabled = false;
+            icon.setAttribute('data-lucide', 'pause');
+            icon.classList.remove('spinner');
+            startGeneratedProgressTracking(clipId);
+            break;
+          case 'loading':
+            playBtn.disabled = true;
+            icon.setAttribute('data-lucide', 'loader-2');
+            icon.classList.add('spinner');
+            break;
+        }
+
+        lucide.createIcons();
+      });
+
+      // Update button after audio starts playing
+      if (state === 'loading') {
+        setTimeout(() => {
+          const songId = `generated-${clipId}`;
+          if (audioManager.isCurrentlyPlaying() && currentPlayingSongId === songId) {
+            updateGeneratedPlayButton(clipId, 'pause');
+          }
+        }, 500);
+      }
+    }
+
+    // Start tracking progress for generated songs
+    function startGeneratedProgressTracking(clipId) {
+      clearGeneratedProgressTracking(clipId);
+
+      const interval = setInterval(() => {
+        const audio = audioManager.getCurrentAudio();
+        const songId = `generated-${clipId}`;
+        if (!audio || !currentPlayingSongId.includes(clipId)) {
+          clearGeneratedProgressTracking(clipId);
+          return;
+        }
+
+        updateGeneratedProgress(clipId, audio.currentTime, audio.duration);
+      }, 100);
+
+      progressIntervals.set(`generated-${clipId}`, interval);
+    }
+
+    // Clear progress tracking for generated songs
+    function clearGeneratedProgressTracking(clipId) {
+      const interval = progressIntervals.get(`generated-${clipId}`);
+      if (interval) {
+        clearInterval(interval);
+        progressIntervals.delete(`generated-${clipId}`);
+      }
+    }
+
+    // Update progress for generated songs
+    function updateGeneratedProgress(clipId, currentTime, duration) {
+      const progressFills = [
+        document.getElementById(`progress-fill-generated-${clipId}`),
+        document.getElementById(`progress-fill-streaming-${clipId}`)
+      ].filter(fill => fill);
+
+      const currentTimeEls = [
+        document.getElementById(`current-time-generated-${clipId}`),
+        document.getElementById(`current-time-streaming-${clipId}`)
+      ].filter(el => el);
+
+      const durationEls = [
+        document.getElementById(`duration-generated-${clipId}`),
+        document.getElementById(`duration-streaming-${clipId}`)
+      ].filter(el => el);
+
+      if (duration > 0) {
+        const percentage = (currentTime / duration) * 100;
+        progressFills.forEach(fill => {
+          fill.style.width = `${percentage}%`;
+        });
+      }
+
+      currentTimeEls.forEach(el => {
+        el.textContent = formatTime(currentTime);
+      });
+
+      if (duration > 0) {
+        durationEls.forEach(el => {
+          el.textContent = formatTime(duration);
+        });
+      }
+    }
+
+    // Initialize audio system on page load
+    function initializeAudioSystem() {
+      // Add event listeners for better audio management
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+      window.addEventListener('beforeunload', handlePageUnload);
+
+      // Ensure only one audio plays at a time across the app
+      window.addEventListener('focus', () => {
+        // Resume if paused due to visibility change
+        if (audioManager.getCurrentAudio() && audioManager.getCurrentAudio().paused) {
+          audioManager.resume();
+        }
+      });
+
+      console.log('Audio management system initialized');
+    }
+
+    // Get volume setting for a song
+    function getVolumeForSong(songId) {
+      const volumeSlider = document.getElementById(`volume-${songId}`);
+      return volumeSlider ? parseFloat(volumeSlider.value) : 0.8;
+    }
+
+    // Add visual highlight to currently playing song
+    function addSongHighlight(songId) {
+      removeSongHighlight(); // Remove from all other songs
+      const songCard = document.querySelector(`[onclick*="${songId}"]`)?.closest('.song-card');
+      if (songCard) {
+        songCard.classList.add('now-playing');
+      }
+    }
+
+    // Remove visual highlight from song
+    function removeSongHighlight(songId = null) {
+      if (songId) {
+        const songCard = document.querySelector(`[onclick*="${songId}"]`)?.closest('.song-card');
+        if (songCard) {
+          songCard.classList.remove('now-playing');
+        }
+      } else {
+        // Remove from all songs
+        document.querySelectorAll('.song-card.now-playing').forEach(card => {
+          card.classList.remove('now-playing');
+        });
+      }
+    }
+
+    // Show audio error message
+    function showAudioError(message) {
+      // Create temporary error notification
+      const notification = document.createElement('div');
+      notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: rgba(239, 68, 68, 0.9);
+        color: white;
+        padding: 1rem;
+        border-radius: 8px;
+        z-index: 10000;
+        max-width: 300px;
+        font-size: 0.9rem;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+      `;
+      notification.textContent = message;
+      document.body.appendChild(notification);
+
+      // Remove after 5 seconds
+      setTimeout(() => {
+        if (notification.parentNode) {
+          notification.parentNode.removeChild(notification);
+        }
+      }, 5000);
+    }
+
+    // Stop all audio when switching tabs or leaving page
+    function handlePageChange() {
+      if (audioManager.isCurrentlyPlaying()) {
+        audioManager.stopAll();
+        if (currentPlayingSongId) {
+          updatePlayButton(currentPlayingSongId, 'play');
+          clearProgressTracking(currentPlayingSongId);
+          removeSongHighlight(currentPlayingSongId);
+          currentPlayingSongId = null;
+        }
+      }
+    }
+
+    // Add page visibility change handler
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) {
+        // Page is hidden, pause audio
+        if (audioManager.isCurrentlyPlaying()) {
+          audioManager.pause();
+          if (currentPlayingSongId) {
+            updatePlayButton(currentPlayingSongId, 'play');
+          }
+        }
+      }
+    });
+
+    // Add beforeunload handler
+    window.addEventListener('beforeunload', handlePageChange);
+
+    // Calendar recording state
+    let isRecordingCalendar = false;
+    let calendarRecordingTime = 0;
+    let calendarRecordingInterval = null;
+    let mediaRecorderCalendar = null;
+    let audioChunksCalendar = [];
+
+    // Initialize the interface
+    async function init() {
+      await loadGallery();
+      await loadTranscriptions();
+      await loadSongs();
+      await loadCalendarEvents();
+      updateAllCounts();
+      updateRecentActivity();
+    }
+
+    // Tab switching
+    function switchTab(tabName) {
+      // Update navigation
+      document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+
+      document.querySelector(`.nav-item[onclick*="${tabName}"]`).classList.add('active');
+      document.getElementById(`${tabName}-tab`).classList.add('active');
+
+      updateAllCounts();
+
+      // Hide mobile menu if open
+      const bottomNav = document.getElementById('bottomNav');
+      bottomNav.classList.remove('hidden');
+    }
+
+    // Load functions
+    async function loadGallery() {
+      try {
+        const response = await fetch('/api/gallery');
+        const data = await response.json();
+        gallery = data.photos || [];
+        renderGallery();
+      } catch (error) {
+        console.error('Failed to load gallery:', error);
+        document.getElementById('gallery-container').innerHTML = `
+          <div class="empty-state">
+            <div class="empty-icon"><i data-lucide="camera-off"></i></div>
+            <h3>Failed to load photos</h3>
+            <p>Please try refreshing the page</p>
+          </div>
+        `;
+      }
+    }
+
+    async function loadTranscriptions() {
+      try {
+        const response = await fetch('/api/transcriptions');
+        const data = await response.json();
+        transcriptions = data.transcriptions || [];
+        renderTranscriptions();
+      } catch (error) {
+        console.error('Failed to load transcriptions:', error);
+        document.getElementById('transcriptions-container').innerHTML = `
+          <div class="empty-state">
+            <div class="empty-icon"><i data-lucide="mic-off"></i></div>
+            <h3>Failed to load transcriptions</h3>
+            <p>Please try refreshing the page</p>
+          </div>
+        `;
+      }
+    }
+
+    async function loadSongs() {
+      try {
+        const response = await fetch('/api/songs');
+        const data = await response.json();
+        songs = data.songs || [];
+        renderSongs();
+        startSongStatusChecks();
+      } catch (error) {
+        console.error('Failed to load songs:', error);
+        document.getElementById('songs-container').innerHTML = `
+          <div class="empty-state">
+            <div class="empty-icon"><i data-lucide="music-off"></i></div>
+            <h3>Failed to load songs</h3>
+            <p>Please try refreshing the page</p>
+          </div>
+        `;
+      }
+    }
+
+    async function loadCalendarEvents() {
+      try {
+        // Mock calendar events for now
+        calendarEvents = [];
+        renderCalendarEvents();
+      } catch (error) {
+        console.error('Failed to load calendar events:', error);
+      }
+    }
+
+    // Render functions
+    function renderGallery() {
+      const container = document.getElementById('gallery-container');
+
+      if (gallery.length === 0) {
+        container.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-icon"><i data-lucide="camera"></i></div>
+            <h3>No photos yet</h3>
+            <p>Take photos using voice commands or button presses on your MentraOS glasses!</p>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = '';
+      const galleryDiv = document.createElement('div');
+      galleryDiv.className = 'gallery-grid';
+
+      gallery.forEach((photo, index) => {
+        const item = document.createElement('div');
+        item.className = `gallery-item ${photo.selected ? 'selected' : ''}`;
+        item.onclick = () => togglePhotoSelection(photo.requestId);
+        item.tabIndex = 0;
+        item.onkeydown = (e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            togglePhotoSelection(photo.requestId);
+          }
+        };
+
+        let captionHtml = '';
+        if (photo.captionGenerated) {
+          if (photo.caption) {
+            captionHtml = photo.caption;
+          } else {
+            captionHtml = 'AI analysis completed';
+          }
+        } else {
+          captionHtml = 'Generating AI description...';
+        }
+
+        item.innerHTML = `
+          <img src="/api/photo/${photo.requestId}" alt="Photo ${index + 1}" loading="lazy">
+          <div class="selection-indicator">
+            ${photo.selected ? '<i data-lucide="check"></i>' : ''}
+          </div>
+          <div class="gallery-item-info">
+            <div class="gallery-item-title">${new Date(photo.timestamp).toLocaleString()}</div>
+            <div class="gallery-item-subtitle">${captionHtml}</div>
+          </div>
+        `;
+
+        galleryDiv.appendChild(item);
+      });
+
+      container.appendChild(galleryDiv);
+      lucide.createIcons();
+    }
+
+    function renderTranscriptions() {
+      const container = document.getElementById('transcriptions-container');
+
+      if (transcriptions.length === 0) {
+        container.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-icon"><i data-lucide="mic"></i></div>
+            <h3>No transcriptions yet</h3>
+            <p>Try speaking while using your MentraOS glasses!</p>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = '';
+      const listDiv = document.createElement('div');
+      listDiv.className = 'transcription-list';
+
+      const sortedTranscriptions = [...transcriptions].sort((a, b) => b.timestamp - a.timestamp);
+
+      sortedTranscriptions.forEach((transcription, index) => {
+        const item = document.createElement('div');
+        item.className = `transcription-item ${transcription.selected ? 'selected' : ''} slide-in`;
+        item.style.animationDelay = `${index * 0.1}s`;
+        item.onclick = () => toggleTranscriptionSelection(transcription.id);
+        item.tabIndex = 0;
+        item.onkeydown = (e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            toggleTranscriptionSelection(transcription.id);
+          }
+        };
+
+        item.innerHTML = `
+          <div class="transcription-header">
+            <span class="transcription-timestamp">
+              <i data-lucide="clock" style="width: 14px; height: 14px; display: inline; margin-right: 0.25rem;"></i>
+              ${new Date(transcription.timestamp).toLocaleString()}
+            </span>
+            ${transcription.isActivationPhrase ? '<span class="activation-badge">ACTIVATION</span>' : ''}
+          </div>
+          <div class="transcription-text">${transcription.text}</div>
+        `;
+
+        listDiv.appendChild(item);
+      });
+
+      container.appendChild(listDiv);
+      lucide.createIcons();
+    }
+
+    function renderSongs() {
+      const container = document.getElementById('songs-container');
+
+      if (songs.length === 0) {
+        container.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-icon"><i data-lucide="music"></i></div>
+            <h3>No songs generated yet</h3>
+            <p>Create your first song in the Music Studio above!</p>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = '';
+      const gridDiv = document.createElement('div');
+      gridDiv.className = 'song-grid';
+
+      const sortedSongs = [...songs].sort((a, b) => b.createdAt - a.createdAt);
+
+      sortedSongs.forEach((song, index) => {
+        const card = document.createElement('div');
+        card.className = `song-card song-item fade-in`;
+        card.style.animationDelay = `${index * 0.1}s`;
+        card.setAttribute('data-song-id', song.id);
+
+        const createdDate = new Date(song.createdAt).toLocaleString();
+        const completedDate = song.completedAt ? new Date(song.completedAt).toLocaleString() : null;
+
+        let streamingIndicator = '';
+        if (song.status === 'streaming') {
+          streamingIndicator = `
+            <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem; color: var(--warning-color);">
+              <div class="spinner" style="width: 16px; height: 16px; border-width: 2px;"></div>
+              <span style="font-size: 0.85rem;">Streaming preview available</span>
+            </div>
+          `;
+        } else if (song.status === 'submitted' || song.status === 'queued') {
+          streamingIndicator = `
+            <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem; color: var(--text-secondary);">
+              <div class="spinner" style="width: 16px; height: 16px; border-width: 2px;"></div>
+              <span style="font-size: 0.85rem;">Generating... (~30-60s for streaming)</span>
+            </div>
+          `;
+        }
+
+        card.innerHTML = `
+          <div class="song-artwork">
+            ${song.imageUrl ? `<img src="${song.imageUrl}" alt="Song artwork">` : `
+              <div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 2rem;">
+                <i data-lucide="music"></i>
+              </div>
+            `}
+          </div>
+          <div class="song-info">
+            <div class="song-header">
+              <h3 class="song-title">${song.title || 'Untitled Song'}</h3>
+              <div class="song-actions">
+                <button class="song-action ${song.favorite ? 'favorite' : ''}" onclick="toggleSongFavorite('${song.id}')" title="Toggle favorite">
+                  <i data-lucide="${song.favorite ? 'star' : 'star'}"></i>
+                </button>
+                <button class="song-action" onclick="deleteSong('${song.id}')" title="Delete song">
+                  <i data-lucide="trash-2"></i>
+                </button>
+              </div>
+            </div>
+
+            <div class="song-status ${song.status}">${song.status}</div>
+
+            ${streamingIndicator}
+
+            <div class="song-meta">
+              <span><i data-lucide="camera" style="width: 12px; height: 12px; display: inline; margin-right: 0.25rem;"></i>${song.selectedPhotosCount}</span>
+              <span><i data-lucide="mic" style="width: 12px; height: 12px; display: inline; margin-right: 0.25rem;"></i>${song.selectedTranscriptionsCount}</span>
+            </div>
+
+            <div style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 1rem;">
+              Created: ${createdDate}
+              ${completedDate ? `<br>Completed: ${completedDate}` : ''}
+            </div>
+
+            ${song.audioUrl ? `
+              <div class="audio-player">
+                <div class="custom-audio-controls">
+                  <button class="play-pause-btn" onclick="toggleSongPlayback('${song.id}', '${song.audioUrl}', '${song.title || 'Untitled Song'}')" id="play-btn-${song.id}">
+                    <i data-lucide="play"></i>
+                  </button>
+                  <div class="audio-progress-container" id="progress-${song.id}" onclick="seekAudio('${song.id}', event)">
+                    <div class="audio-progress-fill" id="progress-fill-${song.id}"></div>
+                  </div>
+                  <div class="audio-time" id="current-time-${song.id}">0:00</div>
+                  <div class="audio-time" id="duration-${song.id}">0:00</div>
+                  <div class="volume-control">
+                    <i data-lucide="volume-2"></i>
+                    <input type="range" min="0" max="1" step="0.1" value="0.8" class="volume-slider" id="volume-${song.id}" onchange="updateVolume('${song.id}', this.value)">
+                  </div>
+                </div>
+              </div>
+            ` : ''}
+          </div>
+        `;
+
+        gridDiv.appendChild(card);
+      });
+
+      container.appendChild(gridDiv);
+      lucide.createIcons();
+    }
+
+    function renderCalendarEvents() {
+      const container = document.getElementById('calendar-events');
+
+      if (calendarEvents.length === 0) {
+        container.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-icon"><i data-lucide="calendar"></i></div>
+            <h3>No events today</h3>
+            <p>Use voice commands to create calendar events</p>
+          </div>
+        `;
+        return;
+      }
+
+      // Render calendar events here when available
+      container.innerHTML = calendarEvents.map(event => `
+        <div class="event-item">
+          <div class="event-title">${event.title}</div>
+          <div class="event-time">${event.time}</div>
+        </div>
+      `).join('');
+    }
+
+    function updateRecentActivity() {
+      const container = document.getElementById('recent-activity');
+      const activities = [];
+
+      // Add recent photos
+      const recentPhotos = gallery.slice(-3);
+      recentPhotos.forEach(photo => {
+        activities.push({
+          type: 'photo',
+          time: photo.timestamp,
+          description: `Photo captured - ${photo.caption || 'AI analysis in progress'}`
+        });
+      });
+
+      // Add recent transcriptions
+      const recentTranscriptions = transcriptions.slice(-3);
+      recentTranscriptions.forEach(transcription => {
+        activities.push({
+          type: 'transcription',
+          time: transcription.timestamp,
+          description: `Voice command: "${transcription.text}"`
+        });
+      });
+
+      // Add recent songs
+      const recentSongs = songs.slice(-2);
+      recentSongs.forEach(song => {
+        activities.push({
+          type: 'song',
+          time: song.createdAt,
+          description: `Song generated: "${song.title || 'Untitled'}"`
+        });
+      });
+
+      // Sort by time, newest first
+      activities.sort((a, b) => b.time - a.time);
+
+      if (activities.length === 0) {
+        container.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-icon"><i data-lucide="activity"></i></div>
+            <h3>No recent activity</h3>
+            <p>Start using your MentraOS glasses to see activity here!</p>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = activities.slice(0, 5).map(activity => {
+        const iconMap = {
+          photo: 'camera',
+          transcription: 'mic',
+          song: 'music'
+        };
+
+        return `
+          <div style="display: flex; align-items: center; gap: 1rem; padding: 0.75rem; background: rgba(255,255,255,0.03); border-radius: 8px; margin-bottom: 0.5rem;">
+            <div style="width: 32px; height: 32px; background: var(--primary-gradient); border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+              <i data-lucide="${iconMap[activity.type]}" style="width: 16px; height: 16px;"></i>
+            </div>
+            <div style="flex: 1;">
+              <div style="font-size: 0.9rem; margin-bottom: 0.25rem;">${activity.description}</div>
+              <div style="font-size: 0.75rem; color: var(--text-secondary);">${new Date(activity.time).toLocaleString()}</div>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      lucide.createIcons();
+    }
+
+    // Selection functions
+    async function togglePhotoSelection(requestId) {
+      const photo = gallery.find(p => p.requestId === requestId);
+      if (!photo) return;
+
+      const newSelected = !photo.selected;
+
+      try {
+        const response = await fetch('/api/gallery/select', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ requestId, selected: newSelected })
+        });
+
+        if (response.ok) {
+          photo.selected = newSelected;
+          renderGallery();
+          updateAllCounts();
+        }
+      } catch (error) {
+        console.error('Failed to toggle photo selection:', error);
+      }
+    }
+
+    async function toggleTranscriptionSelection(id) {
+      const transcription = transcriptions.find(t => t.id === id);
+      if (!transcription) return;
+
+      const newSelected = !transcription.selected;
+
+      try {
+        const response = await fetch('/api/transcriptions/select', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id, selected: newSelected })
+        });
+
+        if (response.ok) {
+          transcription.selected = newSelected;
+          renderTranscriptions();
+          updateAllCounts();
+        }
+      } catch (error) {
+        console.error('Failed to toggle transcription selection:', error);
+      }
+    }
+
+    async function toggleSongFavorite(songId) {
+      const song = songs.find(s => s.id === songId);
+      if (!song) return;
+
+      const newFavorite = !song.favorite;
+
+      try {
+        const response = await fetch('/api/songs/favorite', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ songId, favorite: newFavorite })
+        });
+
+        if (response.ok) {
+          song.favorite = newFavorite;
+          renderSongs();
+          updateAllCounts();
+        }
+      } catch (error) {
+        console.error('Failed to toggle song favorite:', error);
+      }
+    }
+
+    async function deleteSong(songId) {
+      if (!confirm('Are you sure you want to delete this song? This action cannot be undone.')) {
+        return;
+      }
+
+      try {
+        const response = await fetch(`/api/songs/${songId}`, {
+          method: 'DELETE'
+        });
+
+        if (response.ok) {
+          const songIndex = songs.findIndex(s => s.id === songId);
+          if (songIndex !== -1) {
+            const song = songs[songIndex];
+
+            if (songStatusIntervals.has(song.clipId)) {
+              clearInterval(songStatusIntervals.get(song.clipId));
+              songStatusIntervals.delete(song.clipId);
+            }
+
+            songs.splice(songIndex, 1);
+            renderSongs();
+            updateAllCounts();
+          }
+        }
+      } catch (error) {
+        console.error('Failed to delete song:', error);
+        alert('Failed to delete song. Please try again.');
+      }
+    }
+
+    // Count updates
+    function updateAllCounts() {
+      const selectedPhotos = gallery.filter(p => p.selected).length;
+      const selectedTranscriptions = transcriptions.filter(t => t.selected).length;
+      const totalSongs = songs.length;
+      const favoriteSongs = songs.filter(s => s.favorite).length;
+
+      // Update all count displays
+      const elements = {
+        'selected-photos-count': selectedPhotos,
+        'selected-transcriptions-count': selectedTranscriptions,
+        'studio-photos-count': selectedPhotos,
+        'studio-transcriptions-count': selectedTranscriptions,
+        'total-songs-count': totalSongs,
+        'favorite-songs-count': favoriteSongs,
+        'dashboard-photos-count': gallery.length,
+        'dashboard-transcriptions-count': transcriptions.length,
+        'dashboard-songs-count': totalSongs,
+        'dashboard-events-count': calendarEvents.length
+      };
+
+      Object.entries(elements).forEach(([id, value]) => {
+        const element = document.getElementById(id);
+        if (element) element.textContent = value;
+      });
+    }
+
+    // Calendar recording functions
+    async function toggleCalendarRecording() {
+      if (isRecordingCalendar) {
+        stopCalendarRecording();
+      } else {
+        await startCalendarRecording();
+      }
+    }
+
+    async function startCalendarRecording() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        mediaRecorderCalendar = new MediaRecorder(stream);
+        audioChunksCalendar = [];
+
+        mediaRecorderCalendar.ondataavailable = (event) => {
+          audioChunksCalendar.push(event.data);
+        };
+
+        mediaRecorderCalendar.onstop = async () => {
+          const audioBlob = new Blob(audioChunksCalendar, { type: 'audio/wav' });
+          await processCalendarAudio(audioBlob);
+        };
+
+        mediaRecorderCalendar.start();
+        isRecordingCalendar = true;
+        calendarRecordingTime = 0;
+
+        // Update UI
+        const btn = document.getElementById('calendar-record-btn');
+        const timeDisplay = document.getElementById('calendar-recording-time');
+        const status = document.getElementById('calendar-recording-status');
+
+        btn.classList.add('recording');
+        btn.innerHTML = '<i data-lucide="square"></i>';
+        timeDisplay.style.display = 'block';
+        status.textContent = 'Recording... Click to stop';
+
+        // Start timer
+        calendarRecordingInterval = setInterval(() => {
+          calendarRecordingTime++;
+          const mins = Math.floor(calendarRecordingTime / 60);
+          const secs = calendarRecordingTime % 60;
+          timeDisplay.textContent = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        }, 1000);
+
+        lucide.createIcons();
+      } catch (error) {
+        console.error('Error starting calendar recording:', error);
+        alert('Could not access microphone. Please check permissions.');
+      }
+    }
+
+    function stopCalendarRecording() {
+      if (mediaRecorderCalendar && isRecordingCalendar) {
+        mediaRecorderCalendar.stop();
+        isRecordingCalendar = false;
+
+        // Stop timer
+        if (calendarRecordingInterval) {
+          clearInterval(calendarRecordingInterval);
+        }
+
+        // Stop all tracks
+        mediaRecorderCalendar.stream.getTracks().forEach(track => track.stop());
+
+        // Update UI
+        const btn = document.getElementById('calendar-record-btn');
+        const timeDisplay = document.getElementById('calendar-recording-time');
+        const status = document.getElementById('calendar-recording-status');
+
+        btn.classList.remove('recording');
+        btn.innerHTML = '<i data-lucide="mic"></i>';
+        status.textContent = 'Processing recording...';
+
+        lucide.createIcons();
+      }
+    }
+
+    async function processCalendarAudio(audioBlob) {
+      const transcriptionDiv = document.getElementById('calendar-transcription');
+      const transcriptionText = document.getElementById('calendar-transcription-text');
+      const responseDiv = document.getElementById('calendar-response');
+      const responseText = document.getElementById('calendar-response-text');
+      const status = document.getElementById('calendar-recording-status');
+
+      try {
+        // Show transcription section
+        transcriptionDiv.style.display = 'block';
+        transcriptionText.textContent = 'Transcribing audio...';
+
+        // Mock transcription (in real implementation, would use speech-to-text API)
+        setTimeout(() => {
+          const mockTranscription = 'Schedule a meeting with the team tomorrow at 2 PM';
+          transcriptionText.textContent = mockTranscription;
+
+          // Show response section
+          responseDiv.style.display = 'block';
+          responseText.textContent = 'Processing calendar request...';
+
+          // Mock calendar response
+          setTimeout(() => {
+            responseText.innerHTML = `
+              <p>I'll schedule a meeting with the team for tomorrow at 2:00 PM.</p>
+              <p><strong>Event Created:</strong> Team Meeting</p>
+              <p><strong>Time:</strong> Tomorrow, 2:00 PM - 3:00 PM</p>
+              <p><strong>Status:</strong> Confirmed</p>
+            `;
+
+            status.textContent = 'Recording processed. Click to record another command';
+
+            const timeDisplay = document.getElementById('calendar-recording-time');
+            timeDisplay.style.display = 'none';
+          }, 2000);
+        }, 1500);
+
+      } catch (error) {
+        console.error('Error processing calendar audio:', error);
+        transcriptionText.textContent = 'Error processing audio. Please try again.';
+        status.textContent = 'Error occurred. Click to try again';
+      }
+    }
+
+    // Music generation
+    async function generateSong() {
+      const customPrompt = document.getElementById('custom-prompt').value.trim();
+      const tags = document.getElementById('song-tags').value.trim();
+      const generateBtn = document.getElementById('generate-btn');
+      const statusContainer = document.getElementById('status-container');
+      const audioContainer = document.getElementById('audio-container');
+
+      generateBtn.disabled = true;
+      generateBtn.innerHTML = '<i data-lucide="loader-2" class="spinner"></i>Generating...';
+
+      statusContainer.innerHTML = '';
+      audioContainer.innerHTML = '';
+
+      try {
+        const response = await fetch('/api/generate-song', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ customPrompt, tags })
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+          currentClipId = result.clipId;
+
+          statusContainer.innerHTML = `
+            <div style="background: rgba(74, 222, 128, 0.1); border: 1px solid var(--success-color); border-radius: 12px; padding: 1rem; color: var(--success-color);">
+              <h4 style="margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem;">
+                <i data-lucide="check-circle"></i>
+                Song Generation Started
+              </h4>
+              <p style="margin-bottom: 0.5rem;"><strong>Clip ID:</strong> ${result.clipId}</p>
+              <p style="margin-bottom: 0.5rem;"><strong>Photos used:</strong> ${result.selectedPhotos} | <strong>Transcriptions:</strong> ${result.selectedTranscriptions}</p>
+              <p style="margin: 0; font-style: italic;">Checking status... (~30-60s for streaming)</p>
+            </div>
+          `;
+
+          await loadSongs();
+          startStatusPolling();
+        } else {
+          throw new Error(result.error || 'Generation failed');
+        }
+      } catch (error) {
+        statusContainer.innerHTML = `
+          <div style="background: rgba(239, 68, 68, 0.1); border: 1px solid var(--error-color); border-radius: 12px; padding: 1rem; color: var(--error-color);">
+            <h4 style="margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem;">
+              <i data-lucide="alert-circle"></i>
+              Generation Error
+            </h4>
+            <p style="margin: 0;">${error.message}</p>
+          </div>
+        `;
+        generateBtn.disabled = false;
+        generateBtn.innerHTML = '<i data-lucide="sparkles"></i>Generate Song';
+      }
+
+      lucide.createIcons();
+    }
+
+    // Status polling
+    function startStatusPolling() {
+      if (statusCheckInterval) {
+        clearInterval(statusCheckInterval);
+      }
+
+      statusCheckInterval = setInterval(async () => {
+        if (!currentClipId) return;
+
+        try {
+          const response = await fetch(`/api/song-status/${currentClipId}`);
+          const status = await response.json();
+
+          const statusContainer = document.getElementById('status-container');
+          const audioContainer = document.getElementById('audio-container');
+
+          if (status.status === 'complete' && status.audio_url) {
+            clearInterval(statusCheckInterval);
+
+            statusContainer.innerHTML = `
+              <div style="background: rgba(74, 222, 128, 0.1); border: 1px solid var(--success-color); border-radius: 12px; padding: 1rem; color: var(--success-color);">
+                <h4 style="margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem;">
+                  <i data-lucide="check-circle"></i>
+                  Song Completed
+                </h4>
+                <p style="margin: 0;"><strong>Title:</strong> ${status.title || 'Untitled'}</p>
+              </div>
+            `;
+
+            audioContainer.innerHTML = `
+              <div style="background: var(--glass-bg); border-radius: 12px; padding: 1.5rem; border: 1px solid var(--border-color);">
+                <h3 style="margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
+                  <i data-lucide="headphones"></i>
+                  ${status.title || 'Your Generated Song'}
+                </h3>
+                <div class="custom-audio-controls">
+                  <button class="play-pause-btn" onclick="playGeneratedSong('${status.clip_id}', '${status.audio_url}', '${status.title || 'Generated Song'}')" id="play-btn-generated-${status.clip_id}">
+                    <i data-lucide="play"></i>
+                  </button>
+                  <div class="audio-progress-container" id="progress-generated-${status.clip_id}">
+                    <div class="audio-progress-fill" id="progress-fill-generated-${status.clip_id}"></div>
+                  </div>
+                  <div class="audio-time" id="current-time-generated-${status.clip_id}">0:00</div>
+                  <div class="audio-time" id="duration-generated-${status.clip_id}">0:00</div>
+                </div>
+              </div>
+            `;
+
+            const generateBtn = document.getElementById('generate-btn');
+            generateBtn.disabled = false;
+            generateBtn.innerHTML = '<i data-lucide="sparkles"></i>Generate Another Song';
+
+          } else if (status.status === 'streaming' && status.audio_url) {
+            statusContainer.innerHTML = `
+              <div style="background: rgba(245, 158, 11, 0.1); border: 1px solid var(--warning-color); border-radius: 12px; padding: 1rem; color: var(--warning-color);">
+                <h4 style="margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem;">
+                  <div class="spinner" style="width: 16px; height: 16px; border-width: 2px;"></div>
+                  Song Generating
+                </h4>
+                <p style="margin: 0;"><strong>Title:</strong> ${status.title || 'Generating...'} | <em>Streaming preview available!</em></p>
+              </div>
+            `;
+
+            if (!audioContainer.innerHTML) {
+              audioContainer.innerHTML = `
+                <div style="background: var(--glass-bg); border-radius: 12px; padding: 1.5rem; border: 1px solid var(--border-color);">
+                  <h3 style="margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
+                    <i data-lucide="headphones"></i>
+                    ${status.title || 'Preview'} (Streaming)
+                  </h3>
+                  <div class="custom-audio-controls">
+                    <button class="play-pause-btn" onclick="playGeneratedSong('${status.clip_id}', '${status.audio_url}', '${status.title || 'Preview'}')" id="play-btn-streaming-${status.clip_id}">
+                      <i data-lucide="play"></i>
+                    </button>
+                    <div class="audio-progress-container" id="progress-streaming-${status.clip_id}">
+                      <div class="audio-progress-fill" id="progress-fill-streaming-${status.clip_id}"></div>
+                    </div>
+                    <div class="audio-time" id="current-time-streaming-${status.clip_id}">0:00</div>
+                    <div class="audio-time" id="duration-streaming-${status.clip_id}">0:00</div>
+                  </div>
+                </div>
+              `;
+            }
+
+          } else if (status.status === 'error') {
+            clearInterval(statusCheckInterval);
+
+            statusContainer.innerHTML = `
+              <div style="background: rgba(239, 68, 68, 0.1); border: 1px solid var(--error-color); border-radius: 12px; padding: 1rem; color: var(--error-color);">
+                <h4 style="margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem;">
+                  <i data-lucide="alert-circle"></i>
+                  Generation Failed
+                </h4>
+                <p style="margin: 0;">${status.metadata?.error_message || 'Unknown error occurred'}</p>
+              </div>
+            `;
+
+            const generateBtn = document.getElementById('generate-btn');
+            generateBtn.disabled = false;
+            generateBtn.innerHTML = '<i data-lucide="rotate-ccw"></i>Try Again';
+          }
+
+          lucide.createIcons();
+        } catch (error) {
+          console.error('Status check failed:', error);
+        }
+      }, 5000);
+    }
+
+    function startSongStatusChecks() {
+      songs.forEach(song => {
+        if ((song.status === 'submitted' || song.status === 'queued' || song.status === 'streaming') && !songStatusIntervals.has(song.clipId)) {
+          const interval = setInterval(async () => {
+            try {
+              const response = await fetch(`/api/song-status/${song.clipId}`);
+              const status = await response.json();
+
+              const songIndex = songs.findIndex(s => s.clipId === song.clipId);
+              if (songIndex !== -1) {
+                const updatedSong = songs[songIndex];
+                updatedSong.status = status.status;
+                updatedSong.title = status.title || updatedSong.title;
+                updatedSong.audioUrl = status.audio_url || updatedSong.audioUrl;
+                updatedSong.imageUrl = status.image_url || updatedSong.imageUrl;
+                updatedSong.metadata = status.metadata || updatedSong.metadata;
+
+                if (status.status === 'complete') {
+                  updatedSong.completedAt = Date.now();
+                  clearInterval(interval);
+                  songStatusIntervals.delete(song.clipId);
+                } else if (status.status === 'error') {
+                  clearInterval(interval);
+                  songStatusIntervals.delete(song.clipId);
+                }
+
+                renderSongs();
+              } else {
+                clearInterval(interval);
+                songStatusIntervals.delete(song.clipId);
+              }
+            } catch (error) {
+              console.error('Failed to check song status:', error);
+            }
+          }, 5000);
+
+          songStatusIntervals.set(song.clipId, interval);
+        }
+      });
+    }
+
+    // Shopping
+    function startShopping() {
+      const query = document.getElementById('shopping-query').value.trim();
+      const statusDiv = document.getElementById('shopping-status');
+
+      if (!query) {
+        statusDiv.innerHTML = `
+          <div style="background: rgba(239, 68, 68, 0.1); border: 1px solid var(--error-color); border-radius: 12px; padding: 1rem; color: var(--error-color);">
+            Please enter what you would like to buy.
+          </div>
+        `;
+        statusDiv.style.display = 'block';
+        return;
+      }
+
+      statusDiv.innerHTML = `
+        <div style="background: var(--glass-bg); border: 1px solid var(--border-color); border-radius: 12px; padding: 1rem;">
+          <div style="display: flex; align-items: center; gap: 0.5rem;">
+            <div class="spinner" style="width: 16px; height: 16px;"></div>
+            <span>Opening shopping interface...</span>
+          </div>
+        </div>
+      `;
+      statusDiv.style.display = 'block';
+
+      const shoppingUrl = `/shopping?sessionId=manual&query=${encodeURIComponent(query)}`;
+      window.location.href = shoppingUrl;
+    }
+
+    // Mobile menu toggle
+    function toggleMobileMenu() {
+      // Could implement a sliding menu here if needed
+    }
+
+    // Auto-refresh data
+    setInterval(() => {
+      loadGallery();
+      loadTranscriptions();
+      loadSongs();
+      updateRecentActivity();
+    }, 10000);
+
+    // Initialize on page load
+    init();
+
+    // Initialize audio management system
+    initializeAudioSystem();
+  </script>
+</body>
+</html>

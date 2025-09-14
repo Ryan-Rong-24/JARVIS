@@ -4,12 +4,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is an enhanced MentraOS application that combines camera functionality, voice transcription, AI photo captioning, and AI music generation. The app demonstrates how to:
+This is an enhanced MentraOS application that combines camera functionality, voice transcription, AI photo captioning, AI music generation, and voice-controlled shopping. The app demonstrates how to:
 - Take photos from smart glasses with voice activation
 - Generate automatic captions for photos using Claude Vision API
 - Maintain photo galleries and transcription history
 - Generate contextual AI music using Suno API with photo captions and transcriptions
-- Provide a rich web interface for content selection and music creation
+- Enable voice-controlled shopping through Knot's transaction_link integration
+- Provide a rich web interface for content selection, music creation, and shopping
+- **NEW**: Mobile-friendly dashboard interface with integrated calendar, email, and analytics
 
 ## Development Commands
 
@@ -27,6 +29,12 @@ The application requires a `.env` file with these variables:
 - `MENTRAOS_API_KEY`: API key from MentraOS Developer Console
 - `SUNO_API_KEY`: API key from Suno for music generation (optional)
 - `ANTHROPIC_API_KEY`: Claude API key for photo captioning (optional)
+- `KNOT_CLIENT_ID`: Client ID from Knot for shopping integration (optional)
+- `KNOT_SECRET`: Secret key from Knot for shopping integration (optional)
+- `KNOT_ENVIRONMENT`: Knot environment (development or production, default: development)
+- `GOOGLE_CLIENT_ID`: Google OAuth2 client ID for calendar integration (optional)
+- `GOOGLE_CLIENT_SECRET`: Google OAuth2 client secret for calendar integration (optional)
+- `GOOGLE_REDIRECT_URI`: OAuth2 redirect URI (default: http://localhost:3000/auth/google/callback)
 
 Copy `.env.example` to `.env` and configure these values before running the app.
 
@@ -57,10 +65,22 @@ Copy `.env.example` to `.env` and configure these values before running the app.
   - Real-time status updates and streaming audio support
   - Responsive design optimized for various screen sizes
 
+- **NEW Dashboard Interface** (`views/dashboard-interface.ejs`): Modern mobile-first dashboard featuring:
+  - Glassmorphism design with gradient backgrounds
+  - Bottom navigation for mobile-friendly access
+  - Integrated calendar AI with voice recording
+  - Dashboard analytics and activity feed
+  - Enhanced music studio with workflow progression
+  - Shopping integration with voice commands
+  - Real-time status updates and notifications
+  - Fully responsive design optimized for mobile devices
+
 ### API Endpoints
 
 **Core Interface:**
-- `GET /webview`: Enhanced multi-tab interface (requires MentraOS authentication)
+- `GET /webview`: **PRIMARY** Mobile-friendly dashboard with integrated components (requires MentraOS authentication)
+- `GET /dashboard`: Alias for `/webview` - same mobile dashboard interface
+- `GET /legacy`: Original multi-tab "Photo & Audio Studio" interface (requires MentraOS authentication)
 
 **Photo Management:**
 - `GET /api/latest-photo`: Returns metadata about the user's latest photo (backward compatibility)
@@ -77,6 +97,24 @@ Copy `.env.example` to `.env` and configure these values before running the app.
 - `GET /api/song-status/:clipId`: Check Suno generation status and get audio URL
 - `GET /api/songs`: Get user's complete song gallery with metadata
 - `POST /api/songs/favorite`: Toggle song favorite status
+
+**Shopping Integration:**
+- `GET /shopping`: Knot SDK shopping interface (requires MentraOS authentication)
+  - Query parameters: `sessionId`, `query` (the user's spoken request)
+
+**NEW Dashboard & Analytics:**
+- `GET /api/analytics`: Dashboard analytics with user stats and activity metrics
+- `GET /api/recent-activity`: Recent user activity feed for dashboard
+- `GET /api/emails`: Email integration endpoint (placeholder for Gmail integration)
+- `GET /api/calendar-events`: Calendar events endpoint with real Google Calendar integration
+
+**Google Calendar Integration:**
+- `GET /auth/google`: Initiate Google OAuth2 flow for calendar access
+- `GET /auth/google/callback`: Handle OAuth2 callback and store tokens
+- `GET /api/google-calendar-status`: Check connection status and get auth URL
+- `POST /api/disconnect-google-calendar`: Disconnect Google Calendar integration
+
+**Song Management:**
 - `DELETE /api/songs/:songId`: Delete a song from the gallery
 
 ### Interaction Model
@@ -106,14 +144,105 @@ This app integrates with MentraOS smart glasses platform:
 
 ### Voice Activation
 
-The app supports voice-activated photo capture with these activation phrases:
+The app supports voice-activated functionality with these activation phrases:
+
+**Photo Capture:**
 - "take photo" / "take picture"
 - "capture photo" / "capture picture"
 - "snap photo" / "snap picture"
 - "camera"
 - "photo"
 
+**Shopping (via Knot integration):**
+- "buy"
+- "purchase"
+- "shop"
+- "get me"
+- "order"
+- "find"
+- "search for"
+- "i want"
+- "i need"
+- "shopping"
+
+**Calendar/Meetings (via dashboard integration):**
+- "schedule"
+- "meeting"
+- "calendar"
+- "appointment"
+- "book"
+- "plan"
+- "create event"
+- "add to calendar"
+
+**Email Management (via dashboard integration):**
+- "email"
+- "reply"
+- "send email"
+- "compose"
+- "check email"
+- "inbox"
+- "message"
+
 **Important**: The MICROPHONE permission must be added to your app in the MentraOS Developer Console for voice activation to work.
+
+### Voice Shopping with Knot
+
+The app integrates with Knot's transaction_link product for voice-controlled shopping:
+- Detects shopping activation phrases in user speech
+- Creates new Knot sessions for each shopping request
+- Launches interactive shopping interface with merchant authentication
+- Supports merchant ID 45 for transaction linking
+- Uses development environment with configured client credentials
+
+When a user says a shopping phrase (e.g., "buy coffee"), the app:
+1. Creates a new Knot session via API
+2. Opens shopping webview with Knot SDK
+3. Allows user to authenticate with merchants
+4. Facilitates transaction linking for the requested product
+
+### Voice Calendar & Email Management with TTS
+
+The app integrates with dashboard-sep APIs for productivity features with full audio feedback:
+
+**Calendar Management:**
+- API endpoint: `https://dashboard.globalstarxyz.com/calendar-agent-chat`
+- Handles natural language meeting requests
+- Integrates with Google Calendar for event creation
+- Supports calendar checking and scheduling
+- **Audio feedback** via ElevenLabs TTS for all responses
+
+**Email Management:**
+- API endpoint: `https://email.globalstarxyz.com/chat`
+- AI-powered email composition and replies
+- Gmail integration for inbox management
+- Smart email context processing
+- **Audio feedback** via ElevenLabs TTS for all responses
+
+**Audio Experience Flow:**
+
+When a user says a calendar phrase (e.g., "schedule meeting tomorrow"), the app:
+1. **Immediate TTS**: "Processing your calendar request" (quick acknowledgment)
+2. Sends transcription to calendar agent API
+3. Processes natural language to extract meeting details
+4. **TTS Response**: Plays the full AI agent response through glasses speakers
+5. **Action TTS**: Audio confirmation for specific actions (e.g., "Creating calendar event: Meeting with Andrew")
+6. Shows visual confirmation on glasses display
+
+When a user says an email phrase (e.g., "reply to my last email"), the app:
+1. **Immediate TTS**: "Processing your email request" (quick acknowledgment)
+2. Sends request to email agent API with email context
+3. Processes email context and generates response
+4. **TTS Response**: Plays the full AI agent response through glasses speakers
+5. **Action TTS**: Audio confirmation for specific actions (e.g., "Sending email to recipient")
+6. Shows visual confirmation on glasses display
+
+**TTS Configuration:**
+- **Calendar responses**: Stability 0.7, Speed 0.9 (clear and professional)
+- **Email responses**: Stability 0.6, Speed 0.85 (slightly more expressive)
+- **Action confirmations**: Stability 0.8, Speed 0.9 (consistent and reliable)
+- **Error messages**: Stability 0.8, Speed 0.95 (clear error communication)
+- All TTS uses ElevenLabs with optimized voice settings for smart glasses
 
 ## Suno Music Generation App
 
