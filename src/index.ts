@@ -4,6 +4,7 @@ import * as ejs from 'ejs';
 import * as path from 'path';
 import Anthropic from '@anthropic-ai/sdk';
 import { googleCalendarService, CreateEventData } from './services/googleCalendarService';
+import { gmailService } from './services/gmailService';
 
 /**
  * Interface representing a stored photo with metadata
@@ -382,15 +383,28 @@ class ExampleMentraOSApp extends AppServer {
    */
   private async getRecentEmailsForContext(userId: string): Promise<any[]> {
     try {
-      // This would integrate with the Gmail service from the dashboard
-      // For now, return empty array as placeholder
       this.logger.debug(`Getting recent emails for context for user ${userId}`);
 
-      // TODO: Implement integration with gmailService from dashboard-sep
-      // const gmailService = require('./dashboard-sep/src/services/gmailService');
-      // return await gmailService.getUnrepliedEmails();
+      if (!gmailService.isUserAuthorized(userId)) {
+        this.logger.debug(`User ${userId} not authorized for Gmail access`);
+        return [];
+      }
 
-      return [];
+      // Get recent emails from Gmail API
+      const recentEmails = await gmailService.getRecentEmails(userId, 5);
+
+      // Convert to context format for email processing
+      const emailContext = recentEmails.map(email => ({
+        id: email.id,
+        subject: email.subject,
+        from: email.from,
+        snippet: email.snippet,
+        date: email.date,
+        isRead: email.isRead
+      }));
+
+      this.logger.debug(`Retrieved ${emailContext.length} emails for context`);
+      return emailContext;
     } catch (error) {
       this.logger.warn('Failed to get recent emails for context:', error);
       return [];
@@ -805,71 +819,79 @@ class ExampleMentraOSApp extends AppServer {
     try {
       session.logger.info(`Processing email request: ${spokenText}`);
 
-      const requestBody = {
-        messages: [
-          {
-            role: 'user',
-            content: spokenText
-          }
-        ],
-        context_emails: await this.getRecentEmailsForContext(userId) // Populate with recent emails for context
-      };
-
-      // Add timeout to prevent hanging
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 20000); // 20 second timeout for email processing
-
-      const result = await this.retryApiCall(async () => {
-        const response = await fetch('https://email.globalstarxyz.com/chat', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(requestBody),
-          signal: controller.signal
-        });
-
-        clearTimeout(timeoutId);
-
-        if (!response.ok) {
-          const errorText = await response.text().catch(() => 'Unknown error');
-          throw new Error(`Email agent API error: ${response.status} ${response.statusText} - ${errorText}`);
+      // Check if user is authorized for Gmail access
+      if (!gmailService.isUserAuthorized(userId)) {
+        const authUrl = googleCalendarService.generateAuthUrl(userId);
+        if (authUrl) {
+          session.layouts.showTextWall("🔐 Please authorize Gmail access", { durationMs: 5000 });
+          session.audio.speak("Please authorize Gmail access to use email features. Check your dashboard for the authorization link.", {
+            voice_settings: { stability: 0.8, speed: 0.95 }
+          });
+          return;
+        } else {
+          throw new Error('Gmail not configured properly');
         }
-
-        return await response.json();
-      });
-      session.logger.info(`Email agent response: ${JSON.stringify(result)}`);
-
-      // Validate response structure
-      if (!result || typeof result !== 'object') {
-        throw new Error('Invalid response from email agent');
       }
 
-      // Show response to user with fallback message
-      const responseMessage = result.assistant_reply || result.response || 'Email request processed';
-      session.layouts.showTextWall(`📧 ${responseMessage}`, { durationMs: 8000 });
+      // Get recent emails for context
+      const contextEmails = await this.getRecentEmailsForContext(userId);
+      session.logger.info(`Got ${contextEmails.length} emails for context`);
 
-      // Play audio response through glasses speakers using ElevenLabs TTS
-      try {
-        await session.audio.speak(responseMessage, {
-          voice_settings: {
-            stability: 0.6,        // Slightly more variation for email responses
-            similarity_boost: 0.8, // Natural sounding
-            style: 0.3,            // More expressive for email interactions
-            speed: 0.85            // Slightly faster for email responses
-          }
-        });
-        session.logger.info('Email response played via TTS');
-      } catch (ttsError) {
-        session.logger.warn('Failed to play email response via TTS:', ttsError);
-        // TTS failure shouldn't break the main functionality
+      // Process the email request locally based on common email actions
+      const lowerText = spokenText.toLowerCase();
+      let responseMessage = "";
+      let actionPerformed = false;
+
+      if (lowerText.includes('check') || lowerText.includes('inbox') || lowerText.includes('unread')) {
+        // Check email summary
+        const unreadCount = await gmailService.getUnreadCount(userId);
+        const recentEmails = await gmailService.getRecentEmails(userId, 3);
+
+        if (unreadCount === 0) {
+          responseMessage = "You have no unread emails. Your inbox is all caught up!";
+        } else {
+          const emailSummary = recentEmails.slice(0, 2).map(email =>
+            `${email.from}: ${email.subject}`
+          ).join('. ');
+
+          responseMessage = `You have ${unreadCount} unread email${unreadCount > 1 ? 's' : ''}. Recent messages: ${emailSummary}`;
+        }
+        actionPerformed = true;
+
+      } else if (lowerText.includes('reply') || lowerText.includes('respond')) {
+        // Reply functionality
+        responseMessage = "To reply to emails, please use the dashboard interface or specify which email you'd like to reply to.";
+        actionPerformed = true;
+
+      } else if (lowerText.includes('send') || lowerText.includes('compose') || lowerText.includes('write')) {
+        // Send/compose functionality
+        responseMessage = "To compose and send emails, please use the dashboard interface where you can specify recipients and content.";
+        actionPerformed = true;
+
+      } else {
+        // Generic email summary
+        const unreadCount = await gmailService.getUnreadCount(userId);
+        if (contextEmails.length > 0) {
+          const latestEmail = contextEmails[0];
+          responseMessage = `Latest email from ${latestEmail.from}: ${latestEmail.subject}. You have ${unreadCount} unread emails total.`;
+        } else {
+          responseMessage = `You have ${unreadCount} unread emails. Use the dashboard to manage your email.`;
+        }
+        actionPerformed = true;
       }
 
-      // Process actions if any (email sending, replies, etc.)
-      if (result.actions && Array.isArray(result.actions) && result.actions.length > 0) {
-        session.logger.info(`Processing ${result.actions.length} email actions`);
-        for (const action of result.actions) {
-          await this.processEmailAction(action, session, userId);
+      if (actionPerformed) {
+        // Show response to user
+        session.layouts.showTextWall(`📧 ${responseMessage}`, { durationMs: 8000 });
+
+        // Play audio response through glasses speakers
+        try {
+          await session.audio.speak(responseMessage, {
+            voice_settings: { stability: 0.6, speed: 0.85 }
+          });
+          session.logger.info('Email response played via TTS');
+        } catch (audioError) {
+          session.logger.warn('Failed to play email response TTS:', audioError);
         }
       }
 
@@ -879,32 +901,24 @@ class ExampleMentraOSApp extends AppServer {
       // Provide specific error feedback to user
       let errorMessage = "❌ Email request failed";
       if (error instanceof Error) {
-        if (error.name === 'AbortError') {
-          errorMessage = "⏱️ Email request timed out. Please try again.";
-        } else if (error.message.includes('fetch')) {
-          errorMessage = "🌐 Unable to connect to email service. Check your internet connection.";
-        } else if (error.message.includes('404')) {
-          errorMessage = "🔍 Email service not found. Please contact support.";
-        } else if (error.message.includes('500')) {
-          errorMessage = "⚙️ Email service temporarily unavailable. Try again in a moment.";
-        } else if (error.message.includes('authorization') || error.message.includes('401')) {
-          errorMessage = "🔒 Email authentication required. Please set up Gmail access.";
+        if (error.message.includes('not authorized') || error.message.includes('Gmail not configured')) {
+          errorMessage = "🔐 Gmail authorization required";
+        } else if (error.message.includes('quota') || error.message.includes('rate limit')) {
+          errorMessage = "⏱️ Gmail rate limit reached";
         }
       }
 
+      // Display error on glasses
       session.layouts.showTextWall(errorMessage, { durationMs: 5000 });
 
       // Play error message via TTS
       try {
-        // Simplify error message for audio
         let audioErrorMessage = "Sorry, there was an issue with your email request.";
         if (error instanceof Error) {
-          if (error.name === 'AbortError') {
-            audioErrorMessage = "Email request timed out. Please try again.";
-          } else if (error.message.includes('fetch')) {
-            audioErrorMessage = "Unable to connect to email service.";
-          } else if (error.message.includes('401')) {
-            audioErrorMessage = "Email authentication required. Please set up Gmail access.";
+          if (error.message.includes('not authorized') || error.message.includes('Gmail not configured')) {
+            audioErrorMessage = "Please authorize Gmail access first to use email features.";
+          } else if (error.message.includes('quota') || error.message.includes('rate limit')) {
+            audioErrorMessage = "Gmail rate limit reached. Please try again later.";
           }
         }
 
@@ -1224,6 +1238,8 @@ class ExampleMentraOSApp extends AppServer {
    */
   private async createGoogleCalendarEvent(userId: string, eventData: any): Promise<void> {
     try {
+      this.logger.info(`[Calendar Auth Debug] Attempting to create event for user: ${userId}`);
+      
       if (!googleCalendarService.isConfigured()) {
         this.logger.warn('Google Calendar not configured, skipping event creation');
         return;
@@ -1231,6 +1247,8 @@ class ExampleMentraOSApp extends AppServer {
 
       if (!googleCalendarService.isUserAuthorized(userId)) {
         this.logger.warn(`User ${userId} not authorized with Google Calendar`);
+        this.logger.info(`[Calendar Auth Debug] Available authorized users: ${JSON.stringify(Array.from(googleCalendarService.getAuthorizedUsers()))}`);
+        this.logger.info(`[Calendar Auth Debug] Google Calendar service configured: ${googleCalendarService.isConfigured()}`);
         return;
       }
 
@@ -1262,6 +1280,8 @@ class ExampleMentraOSApp extends AppServer {
    */
   private async fetchGoogleCalendarEvents(userId: string, dateRange?: any): Promise<void> {
     try {
+      this.logger.info(`[Calendar Auth Debug] Attempting to fetch events for user: ${userId}`);
+      
       if (!googleCalendarService.isConfigured()) {
         this.logger.warn('Google Calendar not configured, skipping event fetch');
         return;
@@ -1269,6 +1289,8 @@ class ExampleMentraOSApp extends AppServer {
 
       if (!googleCalendarService.isUserAuthorized(userId)) {
         this.logger.warn(`User ${userId} not authorized with Google Calendar`);
+        this.logger.info(`[Calendar Auth Debug] Available authorized users: ${JSON.stringify(Array.from(googleCalendarService.getAuthorizedUsers()))}`);
+        this.logger.info(`[Calendar Auth Debug] Google Calendar service configured: ${googleCalendarService.isConfigured()}`);
         return;
       }
 
@@ -2251,14 +2273,33 @@ class ExampleMentraOSApp extends AppServer {
       }
 
       try {
-        // Placeholder for email integration
-        // In a real implementation, this would integrate with Gmail API
-        const emails = await this.getRecentEmailsForContext(userId);
+        if (!gmailService.isUserAuthorized(userId)) {
+          res.json({
+            emails: [],
+            unreadCount: 0,
+            lastSync: new Date().toISOString(),
+            authRequired: true,
+            authUrl: googleCalendarService.generateAuthUrl(userId)
+          });
+          return;
+        }
+
+        // Get recent emails from Gmail API
+        const emails = await gmailService.getRecentEmails(userId, 10);
+        const unreadCount = await gmailService.getUnreadCount(userId);
 
         res.json({
-          emails: emails,
-          unreadCount: 0,
-          lastSync: new Date().toISOString()
+          emails: emails.map(email => ({
+            id: email.id,
+            subject: email.subject,
+            from: email.from,
+            snippet: email.snippet,
+            date: email.date,
+            isRead: email.isRead
+          })),
+          unreadCount: unreadCount,
+          lastSync: new Date().toISOString(),
+          authRequired: false
         });
       } catch (error) {
         this.logger.error('Error getting emails:', error);
@@ -2347,15 +2388,44 @@ class ExampleMentraOSApp extends AppServer {
       }
     });
 
+    // Public Google OAuth authentication route (doesn't require prior auth)
+    app.get('/auth/google/start', async (req: any, res: any) => {
+      // Get userId from query parameter or use email as default
+      const userId = req.query.userId || 'ryanrong24@gmail.com';
+      
+      this.logger.info(`[OAuth Start Debug] Starting Google auth for user: ${userId}`);
+      
+      if (!googleCalendarService.isConfigured()) {
+        this.logger.error('[OAuth Start Debug] Google Calendar not configured');
+        res.status(500).json({ error: 'Google Calendar not configured' });
+        return;
+      }
+
+      const authUrl = googleCalendarService.generateAuthUrl(userId);
+      if (authUrl) {
+        this.logger.info(`[OAuth Start Debug] Generated auth URL for user ${userId}`);
+        this.logger.info(`[OAuth Start Debug] Redirecting to: ${authUrl.substring(0, 100)}...`);
+        res.redirect(authUrl);
+      } else {
+        this.logger.error('[OAuth Start Debug] Failed to generate auth URL');
+        res.status(500).json({ error: 'Failed to generate authentication URL' });
+      }
+    });
+
     app.get('/auth/google/callback', async (req: any, res: any) => {
       const { code, state: userId } = req.query;
+      
+      this.logger.info(`[OAuth Callback Debug] Received callback - code: ${code ? 'present' : 'missing'}, userId: ${userId || 'missing'}`);
+      this.logger.info(`[OAuth Callback Debug] Full query params:`, JSON.stringify(req.query, null, 2));
 
       if (!code || !userId) {
+        this.logger.error(`[OAuth Callback Debug] Missing required parameters - code: ${!!code}, userId: ${!!userId}`);
         res.status(400).send('Missing authorization code or user ID');
         return;
       }
 
       try {
+        this.logger.info(`[OAuth Callback Debug] Attempting to handle auth callback for user: ${userId}`);
         const success = await googleCalendarService.handleAuthCallback(code, userId);
 
         if (success) {

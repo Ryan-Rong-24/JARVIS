@@ -1,5 +1,6 @@
 import { google } from 'googleapis';
 import { OAuth2Client } from 'google-auth-library';
+import { gmailService } from './gmailService';
 
 export interface CalendarEvent {
   id: string;
@@ -42,19 +43,44 @@ export class GoogleCalendarService {
   private oauth2Client: OAuth2Client;
   private calendar: any;
   private userTokens: Map<string, any> = new Map();
+  private clientId: string;
+  private clientSecret: string;
+  private redirectUri: string;
 
   constructor() {
     const clientId = process.env.GOOGLE_CLIENT_ID;
     const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
     const redirectUri = process.env.GOOGLE_REDIRECT_URI;
 
+    console.log('[Google Calendar Debug] Constructor called with:', {
+      hasClientId: !!clientId,
+      hasClientSecret: !!clientSecret,
+      hasRedirectUri: !!redirectUri,
+      redirectUri: redirectUri || 'not set'
+    });
+
     if (!clientId || !clientSecret || !redirectUri) {
       console.warn('Google Calendar API credentials not configured. Calendar features will be limited.');
+      console.warn('Missing:', {
+        clientId: !clientId,
+        clientSecret: !clientSecret,
+        redirectUri: !redirectUri
+      });
       return;
     }
 
+    // Store credentials as instance variables
+    this.clientId = clientId;
+    this.clientSecret = clientSecret;
+    this.redirectUri = redirectUri;
+
     this.oauth2Client = new OAuth2Client(clientId, clientSecret, redirectUri);
     this.calendar = google.calendar({ version: 'v3', auth: this.oauth2Client });
+    console.log('[Google Calendar Debug] OAuth client initialized successfully');
+    console.log('[Google Calendar Debug] OAuth client config:', {
+      clientId: clientId?.substring(0, 20) + '...',
+      redirectUri: redirectUri
+    });
   }
 
   /**
@@ -68,18 +94,36 @@ export class GoogleCalendarService {
    * Generate OAuth2 authentication URL
    */
   generateAuthUrl(userId: string): string | null {
-    if (!this.oauth2Client) return null;
+    if (!this.oauth2Client) {
+      console.error('[Google Calendar Debug] OAuth client not initialized when generating auth URL');
+      return null;
+    }
 
     const scopes = [
       'https://www.googleapis.com/auth/calendar',
-      'https://www.googleapis.com/auth/calendar.events'
+      'https://www.googleapis.com/auth/calendar.events',
+      'https://www.googleapis.com/auth/gmail.readonly',
+      'https://www.googleapis.com/auth/gmail.send',
+      'https://www.googleapis.com/auth/gmail.modify'
     ];
 
-    const url = this.oauth2Client.generateAuthUrl({
+    const authConfig = {
       access_type: 'offline',
       scope: scopes,
       state: userId, // Pass userId as state parameter
       prompt: 'consent'
+    };
+
+    console.log('[Google Calendar Debug] Generating auth URL with config:', authConfig);
+    
+    const url = this.oauth2Client.generateAuthUrl(authConfig);
+    
+    console.log('[Google Calendar Debug] Generated OAuth URL:', url);
+    console.log('[Google Calendar Debug] OAuth URL breakdown:', {
+      clientId: url.includes(process.env.GOOGLE_CLIENT_ID || ''),
+      redirectUri: url.includes(process.env.GOOGLE_REDIRECT_URI || ''),
+      scopes: scopes.join(' '),
+      state: userId
     });
 
     return url;
@@ -89,16 +133,76 @@ export class GoogleCalendarService {
    * Handle OAuth2 callback and store tokens
    */
   async handleAuthCallback(code: string, userId: string): Promise<boolean> {
-    if (!this.oauth2Client) return false;
+    if (!this.clientId || !this.clientSecret || !this.redirectUri) {
+      console.error('[Google Calendar Debug] OAuth credentials not available for callback');
+      return false;
+    }
 
     try {
-      const { tokens } = await this.oauth2Client.getAccessToken(code);
+      console.log(`[Google Calendar Debug] Processing OAuth callback for user: ${userId}`);
+      console.log(`[Google Calendar Debug] Authorization code received: ${code.substring(0, 20)}...`);
+      
+      // Create a fresh OAuth client for this callback to ensure proper configuration
+      console.log(`[Google Calendar Debug] Creating OAuth client with params:`, {
+        clientId: this.clientId?.substring(0, 20) + '...',
+        hasClientSecret: !!this.clientSecret,
+        redirectUri: this.redirectUri,
+        allParamsPresent: !!(this.clientId && this.clientSecret && this.redirectUri)
+      });
+      
+      const callbackClient = new OAuth2Client({
+        clientId: this.clientId,
+        clientSecret: this.clientSecret,
+        redirectUri: this.redirectUri
+      });
+      
+      console.log(`[Google Calendar Debug] Created fresh OAuth client for callback:`, {
+        clientId: this.clientId?.substring(0, 20) + '...',
+        redirectUri: this.redirectUri
+      });
+
+      console.log(`[Google Calendar Debug] About to call getAccessToken with:`, {
+        codeLength: code.length,
+        codePrefix: code.substring(0, 10) + '...',
+        clientConfigured: !!(callbackClient as any)._clientId && !!(callbackClient as any)._clientSecret && !!(callbackClient as any)._redirectUri,
+        clientDetails: {
+          _clientId: (callbackClient as any)._clientId?.substring(0, 20) + '...',
+          _clientSecret: !!(callbackClient as any)._clientSecret,
+          _redirectUri: (callbackClient as any)._redirectUri
+        }
+      });
+      
+      const { tokens } = await callbackClient.getToken(code);
+      console.log(`[Google Calendar Debug] Raw tokens from getToken:`, tokens);
+
+      if (!tokens) {
+        console.error(`[Google Calendar Debug] No tokens received from getToken`);
+        return false;
+      }
+      console.log(`[Google Calendar Debug] Received tokens:`, {
+        hasAccessToken: !!tokens.access_token,
+        hasRefreshToken: !!tokens.refresh_token,
+        tokenType: tokens.token_type,
+        expiryDate: tokens.expiry_date
+      });
+      
       this.userTokens.set(userId, tokens);
+      // Update the main OAuth client with the new tokens
       this.oauth2Client.setCredentials(tokens);
-      console.log(`Google Calendar authorized for user ${userId}`);
+
+      // Share tokens with Gmail service
+      gmailService.storeUserTokens(userId, tokens);
+
+      console.log(`[Google Calendar Debug] Successfully authorized user ${userId} - tokens stored`);
+      console.log(`[Google Calendar Debug] Total authorized users now: ${this.userTokens.size}`);
       return true;
     } catch (error) {
-      console.error('Error during Google OAuth callback:', error);
+      console.error(`[Google Calendar Debug] Error during OAuth callback for user ${userId}:`, error);
+      console.error(`[Google Calendar Debug] Error details:`, {
+        name: error.name,
+        message: error.message,
+        stack: error.stack?.split('\n').slice(0, 5)
+      });
       return false;
     }
   }
@@ -108,7 +212,25 @@ export class GoogleCalendarService {
    */
   isUserAuthorized(userId: string): boolean {
     const tokens = this.userTokens.get(userId);
+    console.log(`[Google Calendar Debug] Checking authorization for user ${userId}:`, {
+      hasTokens: !!tokens,
+      hasAccessToken: tokens?.access_token ? 'yes' : 'no',
+      tokenKeys: tokens ? Object.keys(tokens) : 'no tokens'
+    });
     return !!tokens && !!tokens.access_token;
+  }
+
+  /**
+   * Get list of authorized users for debugging
+   */
+  getAuthorizedUsers(): string[] {
+    const authorizedUsers = Array.from(this.userTokens.keys()).filter(userId => {
+      const tokens = this.userTokens.get(userId);
+      return !!tokens && !!tokens.access_token;
+    });
+    console.log(`[Google Calendar Debug] Currently authorized users:`, authorizedUsers);
+    console.log(`[Google Calendar Debug] All stored user tokens:`, Array.from(this.userTokens.keys()));
+    return authorizedUsers;
   }
 
   /**
