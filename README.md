@@ -1,6 +1,6 @@
 # Jarvis: Smart AI Assistant in your Mentra Glasses (HackMIT 2025)
 
-This is a simple example app which demonstrates how to use the MentraOS Camera API to take photos and display them in a webview.
+This is based on Mentra's example app which demonstrates how to use the MentraOS Camera API to take photos and display them in a webview.
 
 You could also send the photo to an AI api, store it in a database or cloud storage, send it to Roboflow, or do other processing.
 
