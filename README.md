@@ -1,4 +1,4 @@
-# MentraOS-Camera-Example-App
+# Jarvis: Smart AI Assistant in your Mentra Glasses (HackMIT 2025)
 
 This is a simple example app which demonstrates how to use the MentraOS Camera API to take photos and display them in a webview.
 
