@@ -3,7 +3,7 @@ import { Request, Response } from 'express';
 import * as ejs from 'ejs';
 import * as path from 'path';
 import Anthropic from '@anthropic-ai/sdk';
-import { googleCalendarService, CreateEventData } from './services/googleCalendarService';
+import { googleCalendarService, CreateEventData, CalendarEvent } from './services/googleCalendarService';
 import { gmailService } from './services/gmailService';
 
 /**
@@ -2317,7 +2317,7 @@ class ExampleMentraOSApp extends AppServer {
       }
 
       try {
-        let events = [];
+        let events: CalendarEvent[] = [];
 
         if (googleCalendarService.isConfigured() && googleCalendarService.isUserAuthorized(userId)) {
           // Get real Google Calendar events
@@ -2338,11 +2338,19 @@ class ExampleMentraOSApp extends AppServer {
             {
               id: 'mock-event1',
               summary: 'Team Meeting (Demo)',
-              start: { dateTime: new Date().toISOString() },
-              end: { dateTime: new Date(Date.now() + 3600000).toISOString() },
+              start: { 
+                dateTime: new Date().toISOString(),
+                timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone 
+              },
+              end: { 
+                dateTime: new Date(Date.now() + 3600000).toISOString(),
+                timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
+              },
               description: 'Demo event - Connect Google Calendar to see real events',
               location: 'Conference Room A',
               htmlLink: '#',
+              created: new Date().toISOString(),
+              updated: new Date().toISOString(),
               status: 'confirmed'
             }
           ];
@@ -2350,9 +2358,9 @@ class ExampleMentraOSApp extends AppServer {
 
         const formattedEvents = events.map(event => ({
           id: event.id,
-          title: event.summary || event.title,
-          start: event.start?.dateTime || event.start,
-          end: event.end?.dateTime || event.end,
+          title: event.summary,
+          start: event.start.dateTime,
+          end: event.end.dateTime,
           description: event.description,
           location: event.location,
           htmlLink: event.htmlLink,
